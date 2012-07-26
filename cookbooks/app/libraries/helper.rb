@@ -40,14 +40,11 @@ module RightScale
       # Returns array from a comma seperated list
       #
       # @return [Array<String>] Array of vhosts
-
       def vhosts(vhost_list)
-
         vhost_full_name = vhost_list.gsub(/\s+/, "").split(",").uniq.each
         vhost_norm_name = vhost_list.gsub(/[\/]/, '_').split(", ").uniq.each
         vhost_list_temp = Hash[vhost_norm_name.zip vhost_full_name]
         return vhost_list_temp
-        #.gsub(/\s+/, "").split(",").uniq.each
       end
 
     end

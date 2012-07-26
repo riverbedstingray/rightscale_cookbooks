@@ -216,8 +216,11 @@ action :advanced_configs do
 
   condition_type = "FQDN"
   condition_type = "URI" if pool_name_full.include? "/"
+  condition_type = "HTTP_AUTH" if user_list.length >0
 
   case condition_type
+    when "HTTP_AUTH"
+
     when "URI"
       # RESULT EXAMPLE
       # acl url_serverid  path_beg    /serverid
