@@ -37,7 +37,8 @@ attribute "lb/pool_names",
     "lb::do_detach_request",
     "lb::handle_detach",
     "lb::setup_load_balancer",
-    "lb::do_attach_all"
+    "lb::do_attach_all",
+    "lb::setup_advanced_config"
   ]
 
 attribute "lb/stats_uri",
@@ -139,4 +140,12 @@ attribute "lb/service/account_secret",
     "lb::default",
     "lb::do_attach_request",
     "lb::do_detach_request"
+  ]
+
+attribute "lb/advanced_config/backend_authorized_users",
+  :display_name => "Backend authorized users",
+  :description => "List of usernames/passwords which will be used to setup authorization process in loadbalancer configs Example: /serverid{admin:123, admin2:345}; /appserver{user1:678}",
+  :required => "optional",
+  :recipes => [
+    "lb::setup_advanced_config"
   ]
