@@ -40,8 +40,7 @@
         "lb::do_detach_request",
         "lb::handle_detach",
         "lb::setup_load_balancer",
-        "lb::do_attach_all",
-        "lb::setup_advanced_config"
+        "lb::do_attach_all"
       ],
       "choice": [
 
@@ -227,7 +226,8 @@
     "lb::do_attach_request": "Sends request to all servers with loadbalancer:<pool_name>=lb tag to attach the current server to the listener pool. This should be run by a new application server that is ready to accept connections.",
     "lb::do_detach_request": "Sends request to all servers with loadbalancer:<pool_name>=lb tag to detach the current server from the listener pool. This should be run by an application server at decommission.",
     "lb::setup_reverse_proxy_config": "Configures Apache reverse proxy.",
-    "lb::setup_monitoring": "Installs the load balancer collectd plugin for monitoring support."
+    "lb::setup_monitoring": "Installs the load balancer collectd plugin for monitoring support.",
+    "lb::setup_advanced_config": "recipe for advanced loadbalancer configuration"
   },
   "version": "12.1.0"
 }

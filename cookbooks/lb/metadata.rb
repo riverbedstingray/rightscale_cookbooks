@@ -24,6 +24,7 @@ recipe "lb::do_attach_request", "Sends request to all servers with loadbalancer:
 recipe "lb::do_detach_request", "Sends request to all servers with loadbalancer:<pool_name>=lb tag to detach the current server from the listener pool. This should be run by an application server at decommission."
 recipe "lb::setup_reverse_proxy_config", "Configures Apache reverse proxy."
 recipe "lb::setup_monitoring", "Installs the load balancer collectd plugin for monitoring support."
+recipe "lb::setup_advanced_config", "recipe for advanced loadbalancer configuration"
 
 attribute "lb/pool_names",
   :display_name => "Loadbalncer Pool Names",
@@ -38,7 +39,6 @@ attribute "lb/pool_names",
     "lb::handle_detach",
     "lb::setup_load_balancer",
     "lb::do_attach_all",
-    "lb::setup_advanced_config"
   ]
 
 attribute "lb/stats_uri",
