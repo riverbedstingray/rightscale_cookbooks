@@ -202,7 +202,7 @@ action :advanced_configs do
 
   pool_name = new_resource.pool_name
   pool_name_full =  new_resource.pool_name_full
-
+  user_list = new_resource.backend_authorized_users
   log "  Current pool name is #{pool_name}"
   log "  Current  FULL pool name is #{pool_name_full}"
   # if pool_name include "/" we assume that we have URI in tag so we will

@@ -34,6 +34,7 @@ attribute :service_account_id, :kind_of => String, :default => ""
 attribute :service_account_secret, :kind_of => String, :default => ""
 
 attribute :pool_name_full, :kind_of => String, :default => ""
+attribute :backend_authorized_users, :kind_of => String, :default => ""
 # General LoadBalance Actions
 #
 # Below are the actions defined by the lb resource interface.
