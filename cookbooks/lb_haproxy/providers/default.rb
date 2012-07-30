@@ -303,7 +303,7 @@ action :advanced_configs do
     )
   end
 
-  if backend_authorized_users.length >0
+  if backend_authorized_users
 =begin
           userlist UsersFor__appserver
           user user1 insecure-password 678
