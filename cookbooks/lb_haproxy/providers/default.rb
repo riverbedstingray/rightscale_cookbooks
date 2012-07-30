@@ -175,7 +175,6 @@ action :attach do
     group "haproxy"
     umask 0077
     action :nothing
-    persist true
     notifies :reload, resources(:service => "haproxy")
   end
 
