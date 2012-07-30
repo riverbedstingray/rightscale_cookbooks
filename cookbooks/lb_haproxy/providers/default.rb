@@ -167,7 +167,6 @@ action :attach do
   service "haproxy" do
     supports :reload => true, :restart => true, :status => true, :start => true, :stop => true
     action :nothing
-    persist true
   end
 
   # (Re)generate the haproxy config file.
