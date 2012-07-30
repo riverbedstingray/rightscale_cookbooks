@@ -109,7 +109,7 @@ action :add_vhost do
     recursive true
     action :create
   end
-
+=begin
   # Create backend haproxy files for vhost it will answer for.
   template ::File.join("/home/lb/#{node[:lb][:service][:provider]}.d", "#{pool_name}.cfg") do
     source "haproxy_backend.erb"
@@ -124,6 +124,7 @@ action :add_vhost do
     health_uri = "option httpchk GET #{node[:lb][:health_check_uri]}" unless "#{node[:lb][:health_check_uri]}".empty?
     health_chk = "http-check disable-on-404" unless "#{node[:lb][:health_check_uri]}".empty?
     variables(
+      :userlist_pool_name => "",
       :backend_name_line => backend_name,
       :stats_uri_line => stats_uri,
       :stats_auth_line => stats_auth,
@@ -131,9 +132,14 @@ action :add_vhost do
       :health_check_line => health_chk
     )
   end
+=end
+  lb_haproxy_backend  "create main backend section" do
+    pool_name  pool_name
+    advanced_configs "false"
+  end
 
   action_advanced_configs
-  #if node[:lb][:advanced_configuration]== true
+
 
 
   # (Re)generate the haproxy config file.
@@ -161,6 +167,7 @@ action :attach do
   service "haproxy" do
     supports :reload => true, :restart => true, :status => true, :start => true, :stop => true
     action :nothing
+    persist true
   end
 
   # (Re)generate the haproxy config file.
@@ -169,6 +176,7 @@ action :attach do
     group "haproxy"
     umask 0077
     action :nothing
+    persist true
     notifies :reload, resources(:service => "haproxy")
   end
 
@@ -200,75 +208,199 @@ end
 
 action :advanced_configs do
 
+  #TO-DO: remove this
+  service "haproxy" do
+    supports :reload => true, :restart => true, :status => true, :start => true, :stop => true
+    action :nothing
+  end
+
+  execute "/home/lb/haproxy-cat.sh" do
+    user "haproxy"
+    group "haproxy"
+    umask 0077
+    action :nothing
+    notifies :reload, resources(:service => "haproxy")
+  end
+
+
   pool_name = new_resource.pool_name
   pool_name_full =  new_resource.pool_name_full
-  user_list = new_resource.backend_authorized_users
+  backend_authorized_users = new_resource.backend_authorized_users
   log "  Current pool name is #{pool_name}"
   log "  Current  FULL pool name is #{pool_name_full}"
   # if pool_name include "/" we assume that we have URI in tag so we will
   # generate new acls and conditions
 
-  acl_config_file = "/home/lb/#{node[:lb][:service][:provider]}.d/acl_#{pool_name}.conf"
-  file acl_config_file
+  #acl_config_file = "/home/lb/#{node[:lb][:service][:provider]}.d/acl_#{pool_name}.conf"
+  #file acl_config_file
 
-  backend_config_file = "/home/lb/#{node[:lb][:service][:provider]}.d/use_backend_#{pool_name}.conf"
-  file backend_config_file
+  #use_backend_config_file = "/home/lb/#{node[:lb][:service][:provider]}.d/use_backend_#{pool_name}.conf"
+  #file use_backend_config_file
 
-  condition_type = "FQDN"
-  condition_type = "URI" if pool_name_full.include? "/"
-  condition_type = "HTTP_AUTH" if user_list.length >0
+  #userlist_backend_config_file = "/home/lb/#{node[:lb][:service][:provider]}.d/userlist_backend_#{pool_name}.conf"
+  #file userlist_backend_config_file
 
-  case condition_type
-    when "HTTP_AUTH"
 
-    when "URI"
-      # RESULT EXAMPLE
-      # acl url_serverid  path_beg    /serverid
-      acl_rule = "acl acl_#{pool_name} path_beg #{pool_name_full}"
-      bash "Creating acl rules config file" do
-        flags "-ex"
-        code <<-EOH
-          acl_condition="#{acl_rule}"
-          echo $acl_condition >> #{acl_config_file}
-        EOH
-        not_if do ::File.open(acl_config_file, 'r') { |f| f.read }.include? "#{acl_rule}" end
-      end
-
-    else
+  #backend_config_file = "/home/lb/#{node[:lb][:service][:provider]}.d/#{pool_name}.cfg"
+=begin
+  if pool_name_full.include? "/"
+    # RESULT EXAMPLE
+    # acl url_serverid  path_beg    /serverid
+    acl_rule = "acl acl_#{pool_name} path_beg #{pool_name_full}"
+  else
     # we assume that user enter FQDN
-
-      # RESULT EXAMPLE
-      # acl ns-ss-db1-test-rightscale-com_acl  hdr_dom(host) -i ns-ss-db1.test.rightscale.com
-      acl_rule = "acl acl_#{new_resource.pool_name} hdr_dom(host) -i #{new_resource.pool_name}"
-      bash "Creating acl rules config file" do
-        flags "-ex"
-        code <<-EOH
-           acl_condition="#{acl_rule}"
-           echo $acl_condition >> #{acl_config_file}
-        EOH
-        not_if do ::File.open(acl_config_file, 'r') { |f| f.read }.include? "#{acl_rule}" end
-      end
+    # RESULT EXAMPLE
+    # acl ns-ss-db1-test-rightscale-com_acl  hdr_dom(host) -i ns-ss-db1.test.rightscale.com
+    acl_rule = "acl acl_#{new_resource.pool_name} hdr_dom(host) -i #{new_resource.pool_name}"
   end
 
+  bash "Creating acl rules config file" do
+    flags "-ex"
+    code <<-EOH
+       echo "        #{acl_rule}" >> #{acl_config_file}
+    EOH
+    not_if do ::File.open(acl_config_file, 'r') { |f| f.read }.include? "#{acl_rule}" end
+  end
+=end
+
+  template "/home/lb/#{node[:lb][:service][:provider]}.d/acl_#{pool_name}.conf" do
+     source "haproxy_backend_acl.erb"
+     owner "haproxy"
+     group "haproxy"
+     mode 0600
+     backup false
+     cookbook "lb_haproxy"
+     variables(
+       :pool_name => pool_name,
+       :pool_name_full => pool_name_full
+     )
+  end
+
+  #######################################################################
+=begin
   # RESULT EXAMPLE
   # use_backend 2_backend if url_serverid
   use_backend_rule = "use_backend #{pool_name}_backend if acl_#{pool_name}"
   bash "Creating use_backend rule configs" do
     flags "-ex"
     code <<-EOH
-      condition="#{use_backend_rule}"
-      echo $condition >> #{backend_config_file}
+      echo "        #{use_backend_rule}" >> #{use_backend_config_file}
     EOH
-    not_if do ::File.open(backend_config_file, 'r') { |f| f.read }.include? "#{use_backend_rule}" end
+    not_if do ::File.open(use_backend_config_file, 'r') { |f| f.read }.include? "#{use_backend_rule}" end
+  end
+=end
+
+  template "/home/lb/#{node[:lb][:service][:provider]}.d/use_backend_#{pool_name}.conf" do
+    source "haproxy_backend_use.erb"
+    owner "haproxy"
+    group "haproxy"
+    mode 0600
+    backup false
+    cookbook "lb_haproxy"
+    variables(
+      :pool_name => pool_name,
+      :pool_name_full => pool_name_full
+    )
   end
 
+  if backend_authorized_users.length >0
+=begin
+          userlist UsersFor__appserver
+          user user1 insecure-password 678
 
-  execute "/home/lb/haproxy-cat.sh" do
+          backend _appserver_backend
+             acl Auth__appserver http_auth(UsersFor__appserver)
+             http-request auth realm _appserver if !Auth__appserver
+=end
+    log "!!! Current cred is : #{backend_authorized_users}"
+
+=begin
+    user_list = "userlist UsersFor_#{pool_name}"
+
+    bash "Add authorization rules section" do
+      flags "-ex"
+      code <<-EOH
+        echo "\n    #{user_list}\n" >> #{userlist_backend_config_file}
+      EOH
+      #not_if do ::File.open(userlist_backend_config_file, 'r') { |f| f.read }.include? "#{realm}" end
+    end
+
+
+    backend_authorized_users.each do |user_and_pass|
+      user_pair = user_and_pass.split ":"
+      user_string = "user #{user_pair[0]} insecure-password #{user_pair[1]}"
+
+      bash "Add user string" do
+        flags "-ex"
+        code <<-EOH
+          echo "\n    #{user_string}\n" >> #{userlist_backend_config_file}
+        EOH
+        not_if do ::File.open(userlist_backend_config_file, 'r') { |f| f.read }.include? "#{user_string}" end
+      end
+
+    end
+=end
+
+    template "/home/lb/#{node[:lb][:service][:provider]}.d/userlist_backend_#{pool_name}.conf" do
+         source "haproxy_backend_userlist.erb"
+         owner "haproxy"
+         group "haproxy"
+         mode 0600
+         backup false
+         cookbook "lb_haproxy"
+         variables(
+           :pool_name => pool_name,
+           :user_credentials => backend_authorized_users
+         )
+    end
+
+=begin
+    http_auth_acl = "acl Auth_#{pool_name} http_auth(UsersFor_#{pool_name})"
+    realm = "http-request auth realm Please_enter_your_credentials if !Auth_#{pool_name}"
+
+    bash "Add backend authorization rules to #{pool_name}.cfg" do
+      flags "-ex"
+      code <<-EOH
+        echo "\n         #{http_auth_acl}\n         #{realm}\n" >> #{backend_config_file}
+      EOH
+      not_if do ::File.open(backend_config_file, 'r') { |f| f.read }.include? "#{realm}" end
+    end
+
+      # Recreate an individual server file for each vhost and notify the concatenation script if necessary.
+  template "/home/lb/#{node[:lb][:service][:provider]}.d/#{pool_name}.cfg" do
+    source "haproxy_backend.erb"
+    owner "haproxy"
+    group "haproxy"
+    mode 0600
+    backup false
+    cookbook "lb_haproxy"
+    variables(
+      :pool_name => new_resource.pool_name,
+      :backend_name => new_resource.backend_id,
+      :backend_ip => new_resource.backend_ip,
+      :backend_port => new_resource.backend_port,
+      :max_conn_per_server => node[:lb][:max_conn_per_server],
+      :session_sticky => new_resource.session_sticky,
+      :health_check_uri => node[:lb][:health_check_uri]
+    )
+    notifies :run, resources(:execute => "/home/lb/haproxy-cat.sh")
+  end
+=end
+
+  lb_haproxy_backend  "create main backend section" do
+    pool_name  pool_name
+    advanced_configs "true"
+    notifies :run, resources(:execute => "/home/lb/haproxy-cat.sh")
+  end
+
+    execute "/home/lb/haproxy-cat.sh" do
     user "haproxy"
     group "haproxy"
     umask 0077
     action :run
     notifies :reload, resources(:service => "haproxy")
+  end
+
   end
 
 end

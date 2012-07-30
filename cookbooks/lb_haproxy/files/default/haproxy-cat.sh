@@ -58,6 +58,13 @@ cat /home/lb/rightscale_lb.cfg.default_backend >> ${CONF_FILE}
 
 echo "" >> ${CONF_FILE}
 
+  if [ -r  /home/lb/lb_haproxy.d/userlist_backend_${single_vhost}.conf ];
+  then
+    cat /home/lb/lb_haproxy.d/userlist_backend_${single_vhost}.conf>> ${CONF_FILE}
+  fi
+
+echo "" >> ${CONF_FILE}
+
 for single_vhost in ${vhosts}
 do
   cat /home/lb/lb_haproxy.d/${single_vhost}.cfg >> ${CONF_FILE}
