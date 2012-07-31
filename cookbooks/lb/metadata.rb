@@ -144,7 +144,7 @@ attribute "lb/service/account_secret",
 
 attribute "lb/advanced_config/backend_authorized_users",
   :display_name => "Backend authorized users",
-  :description => "List of usernames/passwords which will be used to setup authorization process in loadbalancer configs Example: /serverid{admin:123, admin2:345}; /appserver{user1:678}",
+  :description => "List of usernames/passwords which will be used to setup authorization process in loadbalancer config files. Note http-request auth feature, supported only from haproxy v 1.4. Example: /serverid{admin:123, admin2:345}; /appserver{user1:678}",
   :required => "optional",
   :recipes => [
     "lb::setup_advanced_config"
