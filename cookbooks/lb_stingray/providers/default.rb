@@ -1,37 +1,48 @@
+include RightScale::LB::Helper
+
 action :install do
 
-    key = ::File.exists?("/tmp/license.txt") ? "/tmp/license.txt" : ""
+    # Figure out what to do about installing a Stingray package?
 
-    stingray "Stingray Install" do
+    # Create /etc/stingray directory.
+    directory "/etc/stingray/#{node[:lb][:service][:provider]}.d" do
+        owner "nobody"
+        group "nogroup"
+        mode 0755
+        recursive true
+        action :create
+    end
 
-        accept_license "accept"
-        admin_pass node["lb_stingray"]["password"]
-        # Use a Gold package for everything except for the unlicensed version.
-        gold key == "" ? false : true
-        license_key key
+    # Install script that reads server files and invokes zcli to configure the
+    # services.
 
-        action [:install,:new_cluster]
+    cookbook_file "/etc/stingray/stingray-wrapper.sh" do
+        owner "nobody"
+        group "nogroup"
+        mode 0755
+        source "stingray-zcli-wrapper.sh"
+        cookbook "lb_stingray"
     end
 
     if node["cloud"]["provider"] == "ec2" then
-
-        file "#{node["stingray"]["path"]}/zxtm/.EC2" do
+        file "/opt/riverbed/zxtm/.EC2" do
             backup false
             action :create
         end
 
-        gs_name = "#{node["stingray"]["path"]}/zxtm/conf/zxtms/#{node["ec2"]["hostname"]}"
+        gs_name = "/opt/riverbed/zxtm/conf/zxtms/#{node["ec2"]["hostname"]}"
 
+        # Create a global settings file.  FIXME: This needs to pull a template
+        # instead of creating a new resource.
+        # This should also notify the zeus service to restart.
         stingray_global_settings gs_name do
             ec2_availability_zone node["ec2"]["placement"]["availability_zone"]
             ec2_instanceid node["ec2"]["instance_id"]
             external_ip "EC2"
-
             action :configure
-
         end
 
-        stingray "Stingray Install" do
+        service "zeus" do
             action :restart
         end
 
@@ -41,22 +52,14 @@ end
 
 action :add_vhost do
 
-    vsname = "#{node["stingray"]["path"]}/zxtm/conf/vservers/#{new_resource.vhost_name}"
-    monitorname = "#{node["stingray"]["path"]}/zxtm/conf/monitors/#{new_resource.vhost_name}"
-    persistencename = "#{node["stingray"]["path"]}/zxtm/conf/persistence/#{new_resource.vhost_name}"
+    # Create a config directory for this vhost.
 
-    stingray_virtual_server vsname do
-        action :configure
-    end
+    # Create config file from template
+    # Contains: max_conn_per_node, session_sticky.
 
-    stingray_healthmonitor monitorname do
-        action :configure
-    end
-
-    stingray_persistence persistencename do
-        action :configure
-    end
-
+    # Create a directory for server configs.
+    
+    # Update tags to let RS know we are a load-balancer for this vhost.
     right_link_tag "loadbalancer:#{new_resource.vhost_name}=lb"
 
 end
@@ -64,105 +67,89 @@ end
 action :attach do
 
     vhost_name = new_resource.vhost_name
-    poolname = "#{node["stingray"]["path"]}/zxtm/conf/pools/#{vhost_name}"
-    vsname = "#{node["stingray"]["path"]}/zxtm/conf/vservers/#{vhost_name}"
-    newnode = "#{new_resource.backend_ip}:#{new_resource.backend_port}"
-    pool = Pool.new(poolname)
 
-    stingray_pool poolname do
-        nodes pool.nodes.class == Array ? (pool.nodes + [newnode]).uniq : [newnode]
-        persistence new_resource.session_sticky ? new_resource.vhost_name : nil
-        action :configure
-    end
-
-    if pool.nodes == nil then
-
-        stingray_virtual_server vsname do
-            pool  vhost_name
-            action :configure
-        end
-
-    end
 
 end
 
 action :detach do
 
-    vhost_name = new_resource.vhost_name
-    poolname = "#{node["stingray"]["path"]}/zxtm/conf/pools/#{vhost_name}"
-    vsname = "#{node["stingray"]["path"]}/zxtm/conf/vservers/#{vhost_name}"
-    exitnode = "#{new_resource.backend_ip}:#{new_resource.backend_port}"
-    pool = Pool.new(poolname)
+    pool_name = new_resource.pool_name
+    backend_id = new_resource.backend_id
 
-    log "Existing nodes: #{pool.nodes * " "}. Removing #{exitnode}"
+    log "  Detaching #{backend_id} from #{pool_name}"
 
-# Possible race condition here.
-    pool.nodes.delete(exitnode)
+    # Restart Zeus?  Not sure we need this.
+    service "zeus" do
+        supports :reload => true, :restart => true, :status => false, :start => true, :stop => true
+        action :nothing
+    end
 
-    log "New list of nodes: #{pool.nodes}"
+    # Imports the config into Stingray's config system.
+    execute "/etc/stingray/stingray-wrapper.sh" do
+        action :nothing
+        notifies :reload, resources(:service => "zeus")
+        # Not sure we need to do this.
+    end
 
-    if pool.nodes.length == 0 then
-
-        stingray_virtual_server vsname do
-            pool "discard"
-            action :configure
-        end
-
-        stingray_pool poolname do
-            action :delete
-        end
-
-    else
-
-        stingray_pool poolname do
-            nodes pool.nodes
-            action :configure
-        end
-
+    # Delete the backend's config file.
+    file ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d", pool_name, backend_id) do
+        action :delete
+        backup false
+        # Execute the wrapper script.
+        notifies :run, resource(:execute => "/etc/stingray/stingray-wrapper.sh")
     end
 
 end
 
 action :attach_request do
 
-    log " Attach request for #{new_resource.backend_id} /
-    #{new_resource.backend_ip} / #{new_resource.vhost_name}"
+    pool_name = new_resource.pool_name
+
+    log "  Attach request for #{new_resource.backend_id} / #{new_resource.backend_ip} / #{pool}"
 
     remote_recipe "Attach me to load balancer" do
         recipe "lb::handle_attach"
         attributes :remote_recipe => {
             :backend_ip => new_resource.backend_ip,
+            :backend_id => new_resource.backend_id,
             :backend_port => new_resource.backend_port,
-            :vhost_name => new_resource.vhost_name
+            :pools => pool_name
         }
-
-        recipients_tags "loadbalancer:#{new_resource.vhost_name}=lb"
+        recipients_tags "loadbalancer:#{pool_name}=lb"
     end
 
 end
 
 action :detach_request do
-    # Runs on an application server prior to :detach running on the LB device
-    vhost_name = new_resource.vhost_name
-    log " Detach request for #{new_resource.backend_id} / #{vhost_name}"
+
+    # Just maybe - if we use the same signature as HAProxy, we won't need to
+    # include lb_stingray in the rightscale_cookbook repo.
+
+    pool_name = new_resource.pool
+
+    log " Detach request for #{new_resource.backend_id} / #{pool_name}"
 
     remote_recipe "Detach me from load balancer" do
         recipe "lb::handle_detach"
         attributes :remote_recipe => {
-            :backend_ip => new_resource.backend_ip,
-            :backend_port => new_resource.backend_port,
-            :vhost_names => new_resource.vhost_name
+            :backend_id => new_resource.backend_id,
+            :pools => pool_name
         }
-        recipients_tags "loadbalancer:#{vhost_name}=lb"
+        recipients_tags "loadbalancer:#{pool_name}=lb"
     end
 
 end
 
 action :restart do
 
+<<<<<<< Updated upstream
     execute "Restart Stingray" do
         cwd = node["stingray"]["path"]
         command "./restart-zeus"
+=======
+    service "zeus" do
+        action: restart
+>>>>>>> Stashed changes
     end
 
 end

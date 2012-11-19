@@ -2,7 +2,7 @@
 # Cookbook Name:: lb_stingray
 # Recipe:: default
 #
-# Copyright 2012, YOUR_COMPANY_NAME
+# Copyright 2012, Riverbed Technology
 #
 # All rights reserved - Do Not Redistribute
 #
@@ -13,7 +13,7 @@ class Chef::Recipe
    include RightScale::App::Helper
 end
 
-log "   Override load balancer to use Stingray."
+log "Override load balancer to use Stingray."
 node[:lb][:service][:provider] = "lb_stingray"
 
 vhosts(node[:lb][:vhost_names]).each do | vhost_name |
