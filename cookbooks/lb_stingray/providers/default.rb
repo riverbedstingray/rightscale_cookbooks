@@ -281,4 +281,7 @@ end
 
 action :setup_monitoring do
 
+    # FIXME: Do something here.
+    log "Set up monitoring."
+
 end
