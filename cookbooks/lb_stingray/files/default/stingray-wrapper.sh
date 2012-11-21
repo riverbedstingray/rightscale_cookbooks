@@ -9,7 +9,7 @@
 #shopt -s nullglob
 
 ZEUSHOME=/opt/riverbed
-CONF_DIR=/etc/stingray
+CONF_DIR=/etc/stingray/lb_stingray
 PATH=${PATH}:${ZEUSHOME}/zxtm/bin
 ZCLI=${ZEUSHOME}/zxtm/bin/zcli
 SAVEIFS=$IFS
@@ -42,10 +42,10 @@ function arrayToString {
 
 function getChefNodeListAsLines {
 # FIXME do something about this repetition.
-if [[ $(ls -1 /etc/stingray/services/"${1}"/servers | wc -l) -gt 0 ]]
+if [[ $(ls -1 "${CONF_DIR}"services/"${1}"/servers | wc -l) -gt 0 ]]
 then
 	local j=1
-	local chefNodeArray=( $(paste -d ":" <( cat /etc/stingray/services/"${1}"/servers/*/ip ) <( cat /etc/stingray/services/"${1}"/servers/*/port) | sort) ) 
+	local chefNodeArray=( $(paste -d ":" <( cat "${CONF_DIR}"/services/"${1}"/servers/*/ip ) <( cat "${CONF_DIR}"/services/"${1}"/servers/*/port) | sort) ) 
 	for i in "${chefNodeArray[@]}"
 	do
 		printf "%s" "$i"
@@ -59,10 +59,10 @@ fi
 
 function getChefNodeListAsJson {
 # FIXME: Do this in chef/ruby rather than here.
-if [[ $(ls -1 /etc/stingray/services/"${1}"/servers | wc -l) -gt 0 ]]
+if [[ $(ls -1 "${CONF_DIR}"services/"${1}"/servers | wc -l) -gt 0 ]]
 then
 	local j=0
-	local chefNodeArray=( $( cat /etc/stingray/services/"${1}"/servers/* ) | sort ) ) 
+	local chefNodeArray=( $( cat "${CONF_DIR}"/services/"${1}"/servers/* ) | sort ) ) 
 
 	for i in "${chefNodeArray[@]}"
 	do
@@ -76,7 +76,7 @@ fi
 }
 
 stingray_config=( $(ls -1 /opt/riverbed/zxtm/conf/vservers | sort) )
-chef_config=( $(ls -1 /etc/stingray/services | sort) )
+chef_config=( $(ls -1 ${CONF_DIR}/services | sort) )
 
 # Services to be created.
 ADDED_SERVICE_NAMES=( $(comm -1 -3 <( catArray ${stingray_config[@]} ) <( catArray ${chef_config[@]} ) ) )
