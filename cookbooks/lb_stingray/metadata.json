@@ -1,33 +1,76 @@
 {
-  "groupings": {
-  },
-  "dependencies": {
-    "app": ">= 0.0.0",
-    "rightscale": ">= 0.0.0",
-    "lb": ">= 0.0.0"
-  },
-  "license": "Copyright RightScale, Inc. All rights reserved.",
-  "long_description": "",
-  "attributes": {
-  },
-  "providing": {
-  },
-  "version": "13.2.0",
   "recommendations": {
   },
+  "version": "13.2.0",
   "conflicting": {
   },
-  "maintainer": "Riverbed Technology, Inc.",
+  "platforms": {
+  },
+  "attributes": {
+    "lb_stingray/generic_binary": {
+      "calculated": false,
+      "default": "false",
+      "type": "string",
+      "recipes": [
+        "lb_stingray::default"
+      ],
+      "required": "recommended",
+      "choice": [
+        "false",
+        "true"
+      ],
+      "display_name": "Stingray Generic Binary",
+      "description": "Indicates whether a generic binary, or a RightScale-specifc\nbinary should be used.  Do not change this value."
+    },
+    "lb_stingray/password": {
+      "calculated": false,
+      "type": "string",
+      "recipes": [
+        "lb_stingray::default"
+      ],
+      "required": "required",
+      "choice": [
+
+      ],
+      "display_name": "Stingray Administrative Password",
+      "description": "The password that you would like to use to access Stingray's\nuser interface, using the 'admin' user.  This should be a RightScale\ncredential/password. Example: cred:STINGRAY_ADMIN_PASSWORD"
+    },
+    "lb_stingray/java_enabled": {
+      "calculated": false,
+      "default": "false",
+      "type": "string",
+      "recipes": [
+        "lb_stingray::default"
+      ],
+      "required": "recommended",
+      "choice": [
+        "false",
+        "true"
+      ],
+      "display_name": "Java Extensions",
+      "description": "Whether or not Java Extensions for TrafficScript should be\nenabled.  A JRE must be installed on the host in order for this to function."
+    }
+  },
   "recipes": {
     "lb_stingray::default": "This loads the required 'lb' resource using the\nStingray provider."
   },
   "suggestions": {
   },
+  "maintainer": "Riverbed Technology, Inc.",
+  "name": "lb_stingray",
+  "groupings": {
+  },
   "replacing": {
   },
-  "name": "lb_stingray",
-  "maintainer_email": "support@rightscale.com",
-  "platforms": {
+  "providing": {
   },
+  "long_description": "",
+  "dependencies": {
+    "rightscale": ">= 0.0.0",
+    "lb": ">= 0.0.0",
+    "app": ">= 0.0.0"
+  },
+  "license": "Copyright RightScale, Inc. All rights reserved.",
+  "maintainer_email": "support@rightscale.com",
   "description": "Installs/Configures lb_stingray"
 }

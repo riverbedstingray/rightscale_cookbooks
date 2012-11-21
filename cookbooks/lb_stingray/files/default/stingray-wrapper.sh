@@ -62,7 +62,8 @@ function getChefNodeListAsJson {
 if [[ $(ls -1 /etc/stingray/services/"${1}"/servers | wc -l) -gt 0 ]]
 then
 	local j=0
-	local chefNodeArray=( $(paste -d ":" <(cat /etc/stingray/services/"${1}"/servers/*/ip) <(cat /etc/stingray/services/"${1}"/servers/*/port) | sort ) ) 
+	local chefNodeArray=( $( cat /etc/stingray/services/"${1}"/servers/* ) | sort ) ) 
+
 	for i in "${chefNodeArray[@]}"
 	do
 		printf "\"%s\"" "$i"
@@ -112,8 +113,7 @@ do
 
 	# Compile a list of nodes
 	chefnodes=$(getChefNodeListAsJson "${added_service_name}")
-	echo ${chefnodes}
-
+	#echo ${chefnodes}
 
 	# Create health monitor
 	${ZCLI} <<- EOF
@@ -140,7 +140,7 @@ do
 	Pool.setNote ["${added_service_name}"], ["Created by RightScale - do not modify."]
 	EOF
 
-	if [[ $( grep true ${CONF_DIR}/${added_service_name}/sticky ) -eq 0  ]]
+	if [[ $( grep "sticky true" ${CONF_DIR}/${added_service_name}/config ) -eq 0  ]]
 	then
 	# Create persistence class
 		${ZCLI} <<- EOF
