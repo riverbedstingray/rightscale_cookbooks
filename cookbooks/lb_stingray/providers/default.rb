@@ -271,14 +271,9 @@ end
 
 action :restart do
 
-<<<<<<< Updated upstream
     execute "Restart Stingray" do
         cwd = node["stingray"]["path"]
         command "./restart-zeus"
-=======
-    service "zeus" do
-        action: restart
->>>>>>> Stashed changes
     end
 
 end
