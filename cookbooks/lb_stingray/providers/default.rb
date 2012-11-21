@@ -197,6 +197,7 @@ action :attach do
         variables (
             session_sticky => session_sticky
         )
+    end
 
     template ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d", pool_name, "servers",  backend_id) do
         source  "backend.erb"
