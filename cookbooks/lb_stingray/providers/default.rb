@@ -42,7 +42,7 @@ action :install do
         not_if { ::File.exists? "/opt/riverbed/zxtm" }
         cookbook "stingray"
         mode "0644"
-        source "stingray_install.erb"
+        source "install.erb"
         variables(
         :accept_license => new_resource.accept_license,
         :path => new_resource.path
@@ -142,7 +142,7 @@ action :install do
         gs_name = "/opt/riverbed/zxtm/conf/zxtms/#{node["ec2"]["hostname"]}"
 
         # Create a global settings file.
-        # FIXME: Use zcli for this?
+        # FIXME: Use zcli for this.
         template gs_name do
             source "global_settings_file"
             cookbook "lb_stingray"
@@ -181,6 +181,7 @@ action :attach do
 
     pool_name = new_resource.pool_name
     backend_id = new_resource.backend_id
+    session_sticky = new_recource.sticky
 
     log "  Attaching #{backend_id} to #{pool_name}" 
 
@@ -190,19 +191,21 @@ action :attach do
     end
 
     # Create configuration file from template
-    template "/etc/stingray/services/#{new_resource.pool_name}/config" do
+    template ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d", pool_name, "config") do
         source "pool.erb"
         cookbook "lb_stingray"
-    end
+        variables (
+            session_sticky => session_sticky
+        )
 
-    template ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d", pool_name, backend_id do
+    template ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d", pool_name, "servers",  backend_id) do
         source  "backend.erb"
         cookbook "lb_stingray"
         variables (
             backend_ip => new_resource.backend_ip,
             backend_port => new_resource.backend_port
         )
-        notifies :run, resource(:execute => "wrapper")
+        notifies :run, resources(:execute => "wrapper")
     end
 
 end
@@ -215,7 +218,7 @@ action :detach do
     log "  Detaching #{backend_id} from #{pool_name}"
 
     # Imports the config into Stingray's config system.
-    execute wrapper do
+    execute "wrapper" do
         command "/etc/stingray/stingray-wrapper.sh"
         action :nothing
     end
@@ -224,8 +227,7 @@ action :detach do
     file ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d", pool_name, backend_id) do
         action :delete
         backup false
-        # Execute the wrapper script.
-        notifies :run, resource(:execute => "wrapper")
+        notifies :run, resources(:execute => "wrapper")
     end
 
 end
@@ -271,9 +273,8 @@ end
 
 action :restart do
 
-    execute "Restart Stingray" do
-        cwd = node["stingray"]["path"]
-        command "./restart-zeus"
+    service "zeus" do
+        action :restart
     end
 
 end
