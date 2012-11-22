@@ -148,9 +148,9 @@ action :install do
             source "global_settings_file"
             cookbook "lb_stingray"
             variables(
-                ec2_availability_zone => node["ec2"]["placement"]["availability_zone"],
-                ec2_instanceid => node["ec2"]["instance_id"],
-                external_ip => "EC2"
+                :ec2_availability_zone => node["ec2"]["placement"]["availability_zone"],
+                :ec2_instanceid => node["ec2"]["instance_id"],
+                :external_ip => "EC2"
             )
             notifies :restart, resources(:service => "zeus")
         end
