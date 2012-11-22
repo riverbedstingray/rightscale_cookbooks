@@ -110,8 +110,9 @@ action :install do
         )
     end
 
-    # Create /etc/stingray directory.
+    # Create /etc/stingray/lb_stingray directory.
     directory "/etc/stingray/#{node[:lb][:service][:provider]}.d" do
+        recursive true
         action :create
     end
 
