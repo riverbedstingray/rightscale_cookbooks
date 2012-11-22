@@ -93,7 +93,7 @@ action :install do
         mode "0644"
         variables(
             :accept_license => "accept",
-            :admin_password => node[:lb_stingray][:admin_pass],
+            :admin_password => node[:lb_stingray][:password],
             :license_path => license_path
         )
     end
