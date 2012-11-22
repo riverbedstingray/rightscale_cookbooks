@@ -85,7 +85,7 @@ action :install do
     end
 
     template "/tmp/new_cluster_replay" do
-        license_path=File.exists?("/tmp/stingray-license.txt") ? "/tmp/stingray-license.txt" : ""
+        license_path=::File.exists?("/tmp/stingray-license.txt") ? "/tmp/stingray-license.txt" : ""
         not_if { ::File.exists?(new_resource.path + "/rc.d/S20zxtm") }
         backup false
         cookbook "stingray"
