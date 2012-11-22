@@ -140,7 +140,7 @@ action :install do
         # Create a global settings file.
         # FIXME: Use zcli for this.
         template gs_name do
-            source "global_settings_file"
+            source "global_settings.erb"
             cookbook "lb_stingray"
             variables(
                 :ec2_availability_zone => node["ec2"]["placement"]["availability_zone"],
@@ -163,7 +163,7 @@ action :add_vhost do
     end
 
     # Create a configuration directory for this pool.
-    directory "/etc/stingray/services/#{new_resource.pool_name}" do
+    directory "/etc/stingray/#{node[:lb][:service][:provider]}.d/services/#{new_resource.pool_name}" do
         action :create
         notifies :run, resources( :execute => "wrapper" )
     end
@@ -182,7 +182,7 @@ action :attach do
     log "  Attaching #{backend_id} to #{pool_name}" 
 
     execute "wrapper" do
-        command "/etc/stingray/stingray-wrapper.sh"
+        command "/etc/stingray/#{node[:lb][:service][:provider]}.d/stingray-wrapper.sh"
         action :nothing
     end
 
