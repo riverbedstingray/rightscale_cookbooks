@@ -44,7 +44,7 @@ action :install do
         mode "0644"
         source "install.erb"
         variables(
-        :accept_license => "y",
+        :accept_license => "accept",
         :path => "/opt/riverbed"
         )
     end
