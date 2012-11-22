@@ -125,7 +125,8 @@ action :install do
     end
     
     # Create the zeus service.
-    service "zeus" do
+    execute "restart zeus" do
+        command "/etc/init.d/zeus restart"
         action :nothing
     end
 
@@ -147,7 +148,7 @@ action :install do
                 :ec2_instanceid => node["ec2"]["instance_id"],
                 :external_ip => "EC2"
             )
-            notifies :restart, resources(:service => "zeus")
+            notifies :run, resources(:execute => "restart zeus")
         end
 
     end
@@ -269,8 +270,9 @@ end
 
 action :restart do
 
-    service "zeus" do
-        action :restart
+    execute "restart stingray" do
+        command "/etc/init.d/zeus restart"
+        action :run
     end
 
 end
