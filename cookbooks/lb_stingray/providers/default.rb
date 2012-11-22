@@ -39,7 +39,7 @@ action :install do
 
     # Replay file for non-interactive installation of Stingray.
     template "/tmp/install_replay" do
-        not_if { ::File.exists? "/opt/riverbed/zxtm" }
+        not_if { File.exists?("/opt/riverbed/zxtm") }
         cookbook "stingray"
         mode "0644"
         source "install.erb"
@@ -66,7 +66,7 @@ action :install do
     # Add RS-specific tunings.
     # FIXME: Do something about this - use zcli?
     template "/opt/riverbed/zxtm/conf/settings.cfg" do
-        not_if { ::File.exists?("/opt/riverbed/rc.d/S20zxtm") }
+        not_if { File.exists?("/opt/riverbed/rc.d/S20zxtm") }
         backup false
         cookbook "stingray"
         source "settings.erb"
@@ -85,7 +85,7 @@ action :install do
     end
 
     template "/tmp/new_cluster_replay" do
-        not_if { ::File.exists?(new_resource.path + "/rc.d/S20zxtm") }
+        not_if { File.exists?(new_resource.path + "/rc.d/S20zxtm") }
         backup false
         cookbook "stingray"
         source "new_cluster.erb"
@@ -93,7 +93,7 @@ action :install do
         variables(
             :accept_license => "y",
             :admin_password => node[:lb_stingray][:admin_pass],
-            :license_path => File.exists?("/tmp/stingray-license.txt") ? "/tmp/stingray-license.txt" : ""
+            :license_path => ( File.exists?("/tmp/stingray-license.txt")) ? "/tmp/stingray-license.txt" : ""
         )
     end
 
