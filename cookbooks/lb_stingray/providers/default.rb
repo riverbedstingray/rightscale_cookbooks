@@ -40,7 +40,7 @@ action :install do
     # Replay file for non-interactive installation of Stingray.
     template "/tmp/install_replay" do
         not_if { ::File.exists?("/opt/riverbed/zxtm") }
-        cookbook "stingray"
+        cookbook "lb_stingray"
         mode "0644"
         source "install.erb"
         variables(
@@ -68,7 +68,7 @@ action :install do
     template "/opt/riverbed/zxtm/conf/settings.cfg" do
         not_if { ::File.exists?("/opt/riverbed/rc.d/S20zxtm") }
         backup false
-        cookbook "stingray"
+        cookbook "lb_stingray"
         source "settings.erb"
         mode "0644"
         variables(
@@ -88,7 +88,7 @@ action :install do
         license_path=::File.exists?("/tmp/stingray-license.txt") ? "/tmp/stingray-license.txt" : ""
         not_if { ::File.exists?("/opt/riverbed/rc.d/S20zxtm") }
         backup false
-        cookbook "stingray"
+        cookbook "lb_stingray"
         source "new_cluster.erb"
         mode "0644"
         variables(
