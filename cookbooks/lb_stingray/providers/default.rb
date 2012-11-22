@@ -92,7 +92,7 @@ action :install do
         source "new_cluster.erb"
         mode "0644"
         variables(
-            :accept_license => "y",
+            :accept_license => "accept",
             :admin_password => node[:lb_stingray][:admin_pass],
             :license_path => license_path
         )
