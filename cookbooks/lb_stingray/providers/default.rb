@@ -7,7 +7,7 @@ include RightScale::LB::Helper
 
 action :install do
 
-    version = "9.0"
+    version = "90"
     arch = "x86_64"
 
     # Read rightlink tag in order to find out whether we need to install a gold version.
