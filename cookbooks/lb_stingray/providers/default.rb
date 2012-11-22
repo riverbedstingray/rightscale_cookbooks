@@ -164,6 +164,7 @@ action :add_vhost do
 
     # Create a configuration directory for this pool.
     directory "/etc/stingray/#{node[:lb][:service][:provider]}.d/services/#{new_resource.pool_name}" do
+        recursive true
         action :create
         notifies :run, resources( :execute => "wrapper" )
     end
