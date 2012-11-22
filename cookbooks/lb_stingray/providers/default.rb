@@ -101,12 +101,12 @@ action :install do
     # Initialize instance
     execute "new_cluster" do
         creates "/opt/riverbed/rc.d/S20zxtm"
-        cwd "#{new_resource.path}/zxtm"
+        cwd "/opt/riverbed/zxtm"
         command "./configure --replay-from=/tmp/new_cluster_replay"
         notifies :delete,
         resources(
             :template => "/opt/riverbed/zxtm/conf/settings.cfg",
-            :template => "#{new_resource.tmpdir}/new_cluster_replay"
+            :template => "/tmp/new_cluster_replay"
         )
     end
 
