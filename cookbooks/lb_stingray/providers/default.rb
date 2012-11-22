@@ -112,18 +112,12 @@ action :install do
 
     # Create /etc/stingray directory.
     directory "/etc/stingray/#{node[:lb][:service][:provider]}.d" do
-        owner "nobody"
-        group "nogroup"
-        mode 0755
-        recursive true
         action :create
     end
 
     # Install script that reads server files and invokes zcli to configure the
     # pools.
     cookbook_file "/etc/stingray/#{node[:lb][:service][:provider]}.d/stingray-wrapper.sh" do
-        owner "nobody"
-        group "nogroup"
         mode 0755
         source "stingray-wrapper.sh"
         cookbook "lb_stingray"
