@@ -20,11 +20,11 @@ attribute 'lb_stingray/java_enabled',
 :display_name => "Java Extensions",
 :description => "Whether or not Java Extensions for TrafficScript should be
 enabled.  A JRE must be installed on the host in order for this to function.",
-:choice => [ "false", "true" ],
+:choice => [ "no", "yes" ],
 :required => "recommended",
 :type => "string",
 :recipes => [ "lb_stingray::default" ],
-:default => "false"
+:default => "no"
 
 attribute 'lb_stingray/password',
 :display_name => "Stingray Administrative Password",

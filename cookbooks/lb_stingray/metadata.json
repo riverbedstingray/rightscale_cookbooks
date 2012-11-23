@@ -1,76 +1,76 @@
 {
-  "providing": {
-  },
+  "version": "13.2.0",
   "suggestions": {
   },
-  "recommendations": {
+  "platforms": {
   },
-  "dependencies": {
-    "rightscale": ">= 0.0.0",
-    "lb": ">= 0.0.0",
-    "app": ">= 0.0.0"
-  },
-  "maintainer": "Riverbed Technology, Inc.",
-  "long_description": "",
-  "groupings": {
-  },
-  "replacing": {
-  },
-  "recipes": {
-    "lb_stingray::default": "This loads the required 'lb' resource using the\nStingray provider."
-  },
-  "attributes": {
-    "lb_stingray/java_enabled": {
-      "type": "string",
-      "default": "false",
-      "calculated": false,
-      "description": "Whether or not Java Extensions for TrafficScript should be\nenabled.  A JRE must be installed on the host in order for this to function.",
-      "choice": [
-        "false",
-        "true"
-      ],
-      "recipes": [
-        "lb_stingray::default"
-      ],
-      "display_name": "Java Extensions",
-      "required": "recommended"
-    },
-    "lb_stingray/password": {
-      "type": "string",
-      "calculated": false,
-      "description": "The password that you would like to use to access Stingray's\nuser interface, using the 'admin' user.  This should be a RightScale\ncredential/password. Example: cred:STINGRAY_ADMIN_PASSWORD",
-      "recipes": [
-        "lb_stingray::default"
-      ],
-      "choice": [
-
-      ],
-      "display_name": "Stingray Administrative Password",
-      "required": "required"
-    },
-    "lb_stingray/generic_binary": {
-      "type": "string",
-      "default": "false",
-      "calculated": false,
-      "description": "Indicates whether a generic binary, or a RightScale-specifc\nbinary should be used.  Do not change this value.",
-      "choice": [
-        "false",
-        "true"
-      ],
-      "recipes": [
-        "lb_stingray::default"
-      ],
-      "display_name": "Stingray Generic Binary",
-      "required": "recommended"
-    }
+  "providing": {
   },
   "description": "Installs/Configures lb_stingray",
   "name": "lb_stingray",
-  "version": "13.2.0",
-  "maintainer_email": "support@rightscale.com",
-  "platforms": {
+  "attributes": {
+    "lb_stingray/java_enabled": {
+      "display_name": "Java Extensions",
+      "description": "Whether or not Java Extensions for TrafficScript should be\nenabled.  A JRE must be installed on the host in order for this to function.",
+      "calculated": false,
+      "type": "string",
+      "required": "recommended",
+      "choice": [
+        "no",
+        "yes"
+      ],
+      "recipes": [
+        "lb_stingray::default"
+      ],
+      "default": "no"
+    },
+    "lb_stingray/password": {
+      "display_name": "Stingray Administrative Password",
+      "description": "The password that you would like to use to access Stingray's\nuser interface, using the 'admin' user.  This should be a RightScale\ncredential/password. Example: cred:STINGRAY_ADMIN_PASSWORD",
+      "calculated": false,
+      "type": "string",
+      "required": "required",
+      "choice": [
+
+      ],
+      "recipes": [
+        "lb_stingray::default"
+      ]
+    },
+    "lb_stingray/generic_binary": {
+      "display_name": "Stingray Generic Binary",
+      "description": "Indicates whether a generic binary, or a RightScale-specifc\nbinary should be used.  Do not change this value.",
+      "calculated": false,
+      "type": "string",
+      "required": "recommended",
+      "choice": [
+        "false",
+        "true"
+      ],
+      "recipes": [
+        "lb_stingray::default"
+      ],
+      "default": "false"
+    }
+  },
+  "replacing": {
   },
   "conflicting": {
   },
-  "license": "Copyright RightScale, Inc. All rights reserved."
+  "maintainer_email": "support@rightscale.com",
+  "groupings": {
+  },
+  "license": "Copyright RightScale, Inc. All rights reserved.",
+  "recommendations": {
+  },
+  "long_description": "",
+  "recipes": {
+    "lb_stingray::default": "This loads the required 'lb' resource using the\nStingray provider."
+  },
+  "dependencies": {
+    "app": ">= 0.0.0",
+    "lb": ">= 0.0.0",
+    "rightscale": ">= 0.0.0"
+  },
+  "maintainer": "Riverbed Technology, Inc."
 }
