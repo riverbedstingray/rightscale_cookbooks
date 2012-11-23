@@ -69,7 +69,7 @@ action :install do
         not_if { ::File.exists?("/opt/riverbed/rc.d/S20zxtm") }
         backup false
         cookbook "lb_stingray"
-        source "global_settings.erb"
+        source "settings.erb"
         mode "0644"
         variables(
             :controlallow => "127.0.0.1",
@@ -123,7 +123,7 @@ action :install do
         source "stingray-wrapper.sh"
         cookbook "lb_stingray"
     end
-    
+
     # Create the zeus service.
     execute "restart zeus" do
         command "/etc/init.d/zeus restart"
@@ -132,22 +132,22 @@ action :install do
 
     if node["cloud"]["provider"] == "ec2" then
 
+        cookbook_file "/etc/stingray/#{node[:lb][:service][:provider]}.d/stingray-ec2ify.sh" do
+            mode 0755
+            source "stingray-ec2ify.sh"
+            cookbook "lb_stingray"
+        end
+
         file "/opt/riverbed/zxtm/.EC2" do
             action :create
         end
 
-        gs_name = "/opt/riverbed/zxtm/conf/zxtms/#{node["ec2"]["hostname"]}"
-
         # Create a global settings file.
-        # FIXME: Use zcli for this.
-        template gs_name do
-            source "settings.erb"
-            cookbook "lb_stingray"
-            variables(
-                :ec2_availability_zone => node["ec2"]["placement"]["availability_zone"],
-                :ec2_instanceid => node["ec2"]["instance_id"],
-                :external_ip => "EC2"
-            )
+        execute "ec2ify global settings" do
+            command "/etc/stingray/#{node[:lb][:service][:provider]}.d/stingray-ec2ify.sh \
+                #{node["ec2"]["placement"]["availability_zone"]} \
+                #{node["ec2"]["instance_id"]}"
+            action :run
             notifies :run, resources(:execute => "restart zeus")
         end
 
