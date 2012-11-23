@@ -62,7 +62,7 @@ function getChefNodeListAsJson {
     if [[ $(ls -1 "${CONF_DIR}"services/"${1}"/servers | wc -l) -gt 0 ]]
     then
         local j=0
-        local chefNodeArray=( $( cat "${CONF_DIR}"/services/"${1}"/servers/* ) | sort ) 
+        local chefNodeArray=( $( cat "${CONF_DIR}"/services/"${1}"/servers/* | sort ) ) 
 
         for i in "${chefNodeArray[@]}"
         do
