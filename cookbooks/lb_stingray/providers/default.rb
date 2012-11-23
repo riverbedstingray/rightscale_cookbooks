@@ -69,7 +69,7 @@ action :install do
         not_if { ::File.exists?("/opt/riverbed/rc.d/S20zxtm") }
         backup false
         cookbook "lb_stingray"
-        source "settings.erb"
+        source "global_settings.erb"
         mode "0644"
         variables(
             :controlallow => "127.0.0.1",
@@ -141,7 +141,7 @@ action :install do
         # Create a global settings file.
         # FIXME: Use zcli for this.
         template gs_name do
-            source "global_settings.erb"
+            source "settings.erb"
             cookbook "lb_stingray"
             variables(
                 :ec2_availability_zone => node["ec2"]["placement"]["availability_zone"],
