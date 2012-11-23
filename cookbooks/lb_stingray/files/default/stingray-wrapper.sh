@@ -9,7 +9,7 @@
 #shopt -s nullglob
 
 ZEUSHOME=/opt/riverbed
-CONF_DIR=/etc/stingray/lb_stingray
+CONF_DIR=/etc/stingray/lb_stingray.d
 PATH=${PATH}:${ZEUSHOME}/zxtm/bin
 ZCLI=${ZEUSHOME}/zxtm/bin/zcli
 SAVEIFS=$IFS
