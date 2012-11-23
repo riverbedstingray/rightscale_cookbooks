@@ -59,20 +59,20 @@ fi
 
 function getChefNodeListAsJson {
 # FIXME: Do this in chef/ruby rather than here.
-if [[ $(ls -1 "${CONF_DIR}"services/"${1}"/servers | wc -l) -gt 0 ]]
-then
-	local j=0
-	local chefNodeArray=( $( cat "${CONF_DIR}"/services/"${1}"/servers/* ) | sort ) ) 
+    if [[ $(ls -1 "${CONF_DIR}"services/"${1}"/servers | wc -l) -gt 0 ]]
+    then
+        local j=0
+        local chefNodeArray=( $( cat "${CONF_DIR}"/services/"${1}"/servers/* ) | sort ) 
 
-	for i in "${chefNodeArray[@]}"
-	do
-		printf "\"%s\"" "$i"
-		if [ "$j" -lt "${#chefNodeArray[@]}" ]; then
-			printf ","
-		fi
-		j+=1
-	done
-fi
+        for i in "${chefNodeArray[@]}"
+        do
+            printf "\"%s\"" "$i"
+            if [ "$j" -lt "${#chefNodeArray[@]}" ]; then
+                printf ","
+            fi
+            j+=1
+        done
+    fi
 }
 
 stingray_config=( $(ls -1 /opt/riverbed/zxtm/conf/vservers | sort) )
