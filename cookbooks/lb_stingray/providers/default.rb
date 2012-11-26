@@ -192,7 +192,7 @@ action :attach do
         action :nothing
     end
 
-    template ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d", pool_name, "servers",  backend_id) do
+    template ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d/services", pool_name, "servers",  backend_id) do
         source  "backend.erb"
         cookbook "lb_stingray"
         variables ( :backend_ip => new_resource.backend_ip, :backend_port => new_resource.backend_port )
@@ -215,7 +215,7 @@ action :detach do
     end
 
     # Delete the backend's config file.
-    file ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d", pool_name, backend_id) do
+    file ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d/services", pool_name, backend_id) do
         action :delete
         backup false
         notifies :run, resources(:execute => "wrapper")
