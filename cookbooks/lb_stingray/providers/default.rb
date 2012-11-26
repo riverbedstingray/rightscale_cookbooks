@@ -198,10 +198,10 @@ action :attach do
     template ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d", pool_name, "servers",  backend_id) do
         source  "backend.erb"
         cookbook "lb_stingray"
-        variables ([
+        variables (
             :backend_ip => new_resource.backend_ip,
             :backend_port => new_resource.backend_port
-        ])
+        )
         notifies :run, resources(:execute => "wrapper")
     end
 
