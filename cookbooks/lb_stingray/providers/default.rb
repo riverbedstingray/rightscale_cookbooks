@@ -167,7 +167,7 @@ action :add_vhost do
     template "/etc/stingray/#{node[:lb][:service][:provider]}.d/services/#{new_resource.pool_name}/config" do
        source "pool.erb"
        action :nothing
-       variables ( [ :session_sticky => "true" ] )
+       variables ( [ :session_sticky => new_resource.session_sticky ] )
        notifies :run, resources( :execute => "wrapper" )
     end
 
@@ -187,20 +187,13 @@ action :attach do
 
     pool_name = new_resource.pool_name
     backend_id = new_resource.backend_id
-    #session_sticky = new_recource.sticky
+    session_sticky = new_resource.session_sticky
 
     log "  Attaching #{backend_id} to #{pool_name}" 
 
     execute "wrapper" do
         command "/etc/stingray/#{node[:lb][:service][:provider]}.d/stingray-wrapper.sh"
         action :nothing
-    end
-
-    # Create configuration file from template
-    template ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d", pool_name, "config") do
-        source "pool.erb"
-        cookbook "lb_stingray"
-        variables ([ :session_sticky => session_sticky ])
     end
 
     template ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d", pool_name, "servers",  backend_id) do
