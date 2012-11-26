@@ -163,6 +163,7 @@ action :add_vhost do
     # Create a configuration file for this pool.
     template "/etc/stingray/#{node[:lb][:service][:provider]}.d/services/#{new_resource.pool_name}/config" do
        source "pool.erb"
+       cookbook "lb_stingray"
        action :nothing
        variables ( :session_sticky => new_resource.session_sticky )
        notifies :run, resources( :execute => "wrapper" )
