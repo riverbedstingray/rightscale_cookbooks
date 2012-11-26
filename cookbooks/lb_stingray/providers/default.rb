@@ -43,10 +43,7 @@ action :install do
         cookbook "lb_stingray"
         mode "0644"
         source "install.erb"
-        variables(
-        :accept_license => "accept",
-        :path => "/opt/riverbed"
-        )
+        variables( :accept_license => "accept", :path => "/opt/riverbed" )
     end
 
     # Unpack tarball and install software package
@@ -198,10 +195,7 @@ action :attach do
     template ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d", pool_name, "servers",  backend_id) do
         source  "backend.erb"
         cookbook "lb_stingray"
-        variables (
-            :backend_ip => new_resource.backend_ip,
-            :backend_port => new_resource.backend_port
-        )
+        variables ( :backend_ip => new_resource.backend_ip, :backend_port => new_resource.backend_port )
         notifies :run, resources(:execute => "wrapper")
     end
 
