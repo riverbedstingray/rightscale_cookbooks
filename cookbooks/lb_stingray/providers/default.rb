@@ -162,12 +162,20 @@ action :add_vhost do
         command "/etc/stingray/#{node[:lb][:service][:provider]}.d/stingray-wrapper.sh"
         action :nothing
     end
+    
+    # Create a configuration file for this pool.
+    template "/etc/stingray/#{node[:lb][:service][:provider]}.d/services/#{new_resource.pool_name}/config" do
+       source "pool.erb"
+       action :nothing
+       variables ( [ :session_sticky => "true" ] )
+       notifies :run, resources( :execute => "wrapper" )
+    end
 
     # Create a configuration directory for this pool.
-    directory "/etc/stingray/#{node[:lb][:service][:provider]}.d/services/#{new_resource.pool_name}" do
+    directory "/etc/stingray/#{node[:lb][:service][:provider]}.d/services/#{new_resource.pool_name}/servers" do
         recursive true
         action :create
-        notifies :run, resources( :execute => "wrapper" )
+        notifies :create, resources( :template => "/etc/stingray/#{node[:lb][:service][:provider]}.d/services/#{new_resource.pool_name}/config" )
     end
     
     # Update tags to let RS know we are a load-balancer for this pool.
@@ -179,7 +187,7 @@ action :attach do
 
     pool_name = new_resource.pool_name
     backend_id = new_resource.backend_id
-    session_sticky = new_recource.sticky
+    #session_sticky = new_recource.sticky
 
     log "  Attaching #{backend_id} to #{pool_name}" 
 

@@ -42,7 +42,7 @@ function arrayToString {
 
 function getChefNodeListAsLines {
 # FIXME do something about this repetition.
-if [[ $(ls -1 "${CONF_DIR}"services/"${1}"/servers | wc -l) -gt 0 ]]
+if [[ $(ls -1 "${CONF_DIR}"/services/"${1}"/servers | wc -l) -gt 0 ]]
 then
 	local j=1
 	local chefNodeArray=( $(paste -d ":" <( cat "${CONF_DIR}"/services/"${1}"/servers/*/ip ) <( cat "${CONF_DIR}"/services/"${1}"/servers/*/port) | sort) ) 
@@ -59,7 +59,7 @@ fi
 
 function getChefNodeListAsJson {
 # FIXME: Do this in chef/ruby rather than here.
-    if [[ $(ls -1 "${CONF_DIR}"services/"${1}"/servers | wc -l) -gt 0 ]]
+    if [[ $(ls -1 "${CONF_DIR}"/services/"${1}"/servers | wc -l) -gt 0 ]]
     then
         local j=0
         local chefNodeArray=( $( cat "${CONF_DIR}"/services/"${1}"/servers/* | sort ) ) 
@@ -111,10 +111,6 @@ for added_service_name in "${ADDED_SERVICE_NAMES[@]}"
 do
 	echo "Creating new service for $added_service_name."
 
-	# Compile a list of nodes
-	chefnodes=$(getChefNodeListAsJson "${added_service_name}")
-	#echo ${chefnodes}
-
 	# Create health monitor
 	${ZCLI} <<- EOF
 	Catalog.Monitor.addMonitors ["${added_service_name}"]
@@ -122,9 +118,9 @@ do
 	Catalog.Monitor.setNote ["${added_service_name}"], ["Created by RightScale - do not modify."]
 	EOF
 
-	if [[ -f "${CONF_DIR}/${added_service_name}/health_check_uri" ]]
+	if [[ -f "${CONF_DIR}/services/${added_service_name}/health_check_uri" ]]
 	then
-		uri=$( sed -e 's/http:\/\///' "${CONF_DIR}/${added_service_name}/health_check_uri" )
+		uri=$( sed -e 's/http:\/\///' "${CONF_DIR}/services/${added_service_name}/health_check_uri" )
 		hostheader="${uri%%/*}"
 		path="/${uri#*/}"
 		${ZCLI} <<- EOF
@@ -133,24 +129,42 @@ do
 		EOF
 	fi
 
+	if [[ $( grep "sticky true" ${CONF_DIR}/services/${added_service_name}/config ) -eq 0  ]]
+	then
+        local sticky=true
+    fi
+
+    if [ ${sticky} ]
+    then
+        # Create persistence class
+		${ZCLI} <<- EOF
+		Catalog.Persistence.addPersistence ["${added_service_name}"]
+		Catalog.Persistence.setNote ["${added_service_name}"], ["Created by RightScale - do not modify."]
+		EOF
+	fi
+
+	# Compile a list of nodes
+	chefnodes=$(getChefNodeListAsJson "${added_service_name}")
+
 	# Create a pool
+    # FIXME: Do only if there are actually servers in this pool.
 	${ZCLI} <<- EOF
 	Pool.addPool ["${added_service_name}"], [${chefnodes}]
 	Pool.setMonitors ["${added_service_name}"], [["${added_service_name}"]]
 	Pool.setNote ["${added_service_name}"], ["Created by RightScale - do not modify."]
 	EOF
 
-	if [[ $( grep "sticky true" ${CONF_DIR}/${added_service_name}/config ) -eq 0  ]]
-	then
-	# Create persistence class
-		${ZCLI} <<- EOF
-		Catalog.Persistence.addPersistence ["${added_service_name}"]
-		Catalog.Persistence.setNote ["${added_service_name}"], ["Created by RightScale - do not modify."]
-		Pool.setPersistence ["${added_service_name}"], ["${added_service_name}"]
-		EOF
-	fi
+    if [ ${sticky} ]
+    then
+        ${ZCLI} <<- EOF
+        Pool.setPersistence ["${added_service_name}"], ["${added_service_name}"]
+        EOF
+    fi
+
 
 	# Create virtual server
+    # FIXME: Create a rule instead; virtual server creation should be part of
+    # the installation process.
 	${ZCLI} <<- EOF
 	VirtualServer.addVirtualServer ["${added_service_name}"], { "default_pool": "${added_service_name}", "port": 80, "protocol": "http" }
 	VirtualServer.setEnabled ["${added_service_name}"], [ true ]
@@ -191,7 +205,7 @@ do
 			Pool.setNote ["${current_service_name}"], ["Created by RightScale - do not modify."]
 			EOF
 
-			if [[ $( grep true ${CONF_DIR}/${current_service_name}/sticky ) -eq 0  ]]
+			if [[ $( grep true ${CONF_DIR}/service/${current_service_name}/sticky ) -eq 0  ]]
 			then
 			# Create persistence class
 				${ZCLI} <<- EOF
