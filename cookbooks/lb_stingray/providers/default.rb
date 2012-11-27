@@ -165,7 +165,7 @@ action :add_vhost do
        source "pool.erb"
        cookbook "lb_stingray"
        action :nothing
-       variables ( :session_sticky => new_resource.session_sticky )
+       variables( :session_sticky => new_resource.session_sticky )
        notifies :run, resources( :execute => "wrapper" )
     end
 
@@ -196,7 +196,7 @@ action :attach do
     template ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d/services", pool_name, "servers",  backend_id) do
         source  "backend.erb"
         cookbook "lb_stingray"
-        variables ( :backend_ip => new_resource.backend_ip, :backend_port => new_resource.backend_port )
+        variables( :backend_ip => new_resource.backend_ip, :backend_port => new_resource.backend_port )
         notifies :run, resources(:execute => "wrapper")
     end
 
@@ -244,9 +244,6 @@ action :attach_request do
 end
 
 action :detach_request do
-
-    # Just maybe - if we use the same signature as HAProxy, we won't need to
-    # include lb_stingray in the rightscale_cookbook repo.
 
     pool_name = new_resource.pool_name
 
