@@ -9,6 +9,7 @@ version          "13.2.0"
 # supports "redhat", "~> 5.8"
 # supports "ubuntu", "~> 10.04", "~> 12.04"
 
+depends "lb_stingray"
 depends "lb_haproxy"
 depends "lb_clb"
 depends "lb_elb"
