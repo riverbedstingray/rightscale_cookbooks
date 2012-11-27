@@ -236,7 +236,7 @@ action :attach_request do
             :backend_ip => new_resource.backend_ip,
             :backend_id => new_resource.backend_id,
             :backend_port => new_resource.backend_port,
-            :pools => [ pool_name ]
+            :pools => [ "#{pool_name}" ]
         }
         recipients_tags "loadbalancer:#{pool_name}=lb"
     end
@@ -256,7 +256,7 @@ action :detach_request do
         recipe "lb::handle_detach"
         attributes :remote_recipe => {
             :backend_id => new_resource.backend_id,
-            :pools => [ pool_name ]
+            :pools => [ "#{pool_name}" ]
         }
         recipients_tags "loadbalancer:#{pool_name}=lb"
     end
