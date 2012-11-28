@@ -3,7 +3,7 @@
 # Cookbook Name:: lb_stingray
 #
 # Copyright Riverbed, Inc.  All rights reserved.
-# Written for the RightScale 12H1 branch.
+# Written for RightScale's v13 lineage of ServerTemplate.
 
 set -x
 #shopt -s nullglob
@@ -26,7 +26,7 @@ done
 
 function arrayToString {
 
-    j=0
+    j=1
     declare -a array=("${@}")
     #echo "Array to string: ${array[@]}"
     for item in "${array[@]}"
@@ -43,7 +43,7 @@ function arrayToString {
 function getChefNodeListAsLines {
 	if [[ $(ls -1 "${CONF_DIR}"/services/"${1}"/servers | wc -l) -gt 0 ]]
 	then
-	    j=0
+	    j=1
 		local chefNodeArray=( $( cat "${CONF_DIR}"/services/"${1}"/servers/* | sort ) ) 
 	    for i in "${chefNodeArray[@]}"
 	    do
@@ -60,7 +60,7 @@ function getChefNodeListAsJson {
 # FIXME: Do this in chef/ruby rather than here.
     if [[ $(ls -1 "${CONF_DIR}"/services/"${1}"/servers | wc -l) -gt 0 ]]
     then
-        j=0
+        j=1
         chefNodeArray=( $( cat "${CONF_DIR}"/services/"${1}"/servers/* | sort ) ) 
 
         for i in "${chefNodeArray[@]}"
@@ -179,7 +179,7 @@ do
 
 	if [[ "${#chefnodes[@]}" == 0  ]];then
 
-		if [[ "${poolname}" != "discard" ]];then
+		if [[ "${poolname}" != discard ]];then
 		# The virtual server should be configured to discard traffic.
 		# The pool should be deleted.
 			${ZCLI} <<- EOF
@@ -190,7 +190,7 @@ do
 	else
 
 		# Check to see if the virtual server is currently discarding traffic.
-		if [[ "${poolname}" == "discard"  ]];then
+		if [[ "${poolname}" == discard  ]];then
 
 			# Create a pool.
 			${ZCLI} <<- EOF
@@ -201,7 +201,7 @@ do
 
 			# Check to see if session_sticky was true.
 			# FIXME: Replace session stickiness test with a function.
-			if [[ $( grep "session_sticky true"  "${CONF_DIR}/service/${current_service_name}/config" ) -eq 0  ]];then
+			if [[ $( grep "session_sticky true"  "${CONF_DIR}/services/${current_service_name}/config" ) -eq 0  ]];then
 				# Create persistence class and associate it with the pool.
 				${ZCLI} <<- EOF
 					Catalog.Persistence.addPersistence ["${current_service_name}"]
