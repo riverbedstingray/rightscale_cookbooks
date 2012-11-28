@@ -211,7 +211,7 @@ action :detach do
 
     # Imports the config into Stingray's config system.
     execute "wrapper" do
-        command "/etc/stingray/stingray-wrapper.sh"
+        command "/etc/stingray/#{node[:lb][:service][:provider]}.d/stingray-wrapper.sh"
         action :nothing
     end
 
