@@ -5,7 +5,7 @@
 # Copyright Riverbed, Inc.  All rights reserved.
 # Written for the RightScale 12H1 branch.
 
-#set -x
+set -x
 #shopt -s nullglob
 
 ZEUSHOME=/opt/riverbed
@@ -26,7 +26,7 @@ done
 
 function arrayToString {
 
-    local j=1
+    j=0
     declare -a array=("${@}")
     #echo "Array to string: ${array[@]}"
     for item in "${array[@]}"
@@ -35,33 +35,33 @@ function arrayToString {
         if [ "$j" -lt "${#array[@]}" ]; then
             printf ","
         fi
-        j+=1
+        let "j += 1"
     done
 
 }
 
 function getChefNodeListAsLines {
-if [[ $(ls -1 "${CONF_DIR}"/services/"${1}"/servers | wc -l) -gt 0 ]]
-then
-    local j=1
-	local chefNodeArray=( $( cat "${CONF_DIR}"/services/"${1}"/servers/* | sort ) ) 
-    for i in "${chefNodeArray[@]}"
-    do
-        printf "%s" "$i"
-        if [ "$j" -lt "${#chefNodeArray[@]}" ]; then
-            printf "\n"
-        fi
-        j+=1
-    done
-fi
+	if [[ $(ls -1 "${CONF_DIR}"/services/"${1}"/servers | wc -l) -gt 0 ]]
+	then
+	    j=0
+		local chefNodeArray=( $( cat "${CONF_DIR}"/services/"${1}"/servers/* | sort ) ) 
+	    for i in "${chefNodeArray[@]}"
+	    do
+		printf "%s" "$i"
+		if [ "$j" -lt "${#chefNodeArray[@]}" ]; then
+		    printf "\n"
+		fi
+		let "j += 1"
+	    done
+	fi
 }
 
 function getChefNodeListAsJson {
 # FIXME: Do this in chef/ruby rather than here.
     if [[ $(ls -1 "${CONF_DIR}"/services/"${1}"/servers | wc -l) -gt 0 ]]
     then
-        local j=0
-        local chefNodeArray=( $( cat "${CONF_DIR}"/services/"${1}"/servers/* | sort ) ) 
+        j=0
+        chefNodeArray=( $( cat "${CONF_DIR}"/services/"${1}"/servers/* | sort ) ) 
 
         for i in "${chefNodeArray[@]}"
         do
@@ -69,7 +69,7 @@ function getChefNodeListAsJson {
             if [ "$j" -lt "${#chefNodeArray[@]}" ]; then
                 printf ","
             fi
-            j+=1
+            let "j += 1"
         done
     fi
 }
@@ -107,137 +107,139 @@ do
 done
 
 # Create desired services.
-for added_service_name in "${ADDED_SERVICE_NAMES[@]}"
-do
-    sticky="false"
-    echo "Creating new service for $added_service_name."
+for added_service_name in "${ADDED_SERVICE_NAMES[@]}";do
+	sticky=false
+	echo "Creating new service for $added_service_name."
 
-    # Create health monitor
-    ${ZCLI} <<- EOF
-	Catalog.Monitor.addMonitors ["${added_service_name}"]
-	Catalog.Monitor.setType ["${added_service_name}"], ["http"]
-	Catalog.Monitor.setNote ["${added_service_name}"], ["Created by RightScale - do not modify."]
+	# Create health monitor
+	${ZCLI} <<- EOF
+		Catalog.Monitor.addMonitors ["${added_service_name}"]
+		Catalog.Monitor.setType ["${added_service_name}"], ["http"]
+		Catalog.Monitor.setNote ["${added_service_name}"], ["Created by RightScale - do not modify."]
 	EOF
 
-    if [[ -f "${CONF_DIR}/services/${added_service_name}/health_check_uri" ]]
-    then
-        uri=$( sed -e 's/http:\/\///' "${CONF_DIR}/services/${added_service_name}/health_check_uri" )
-        hostheader="${uri%%/*}"
-        path="/${uri#*/}"
+	
+	if [[ -f "${CONF_DIR}/services/${added_service_name}/health_check_uri" ]];then
+		uri=$( sed -e 's/http:\/\///' "${CONF_DIR}/services/${added_service_name}/health_check_uri" )
+		hostheader="${uri%%/*}"
+		path="/${uri#*/}"
 		${ZCLI} <<- EOF
-		Catalog.Monitor.setPath ["${added_service_name}"],["${path}"]
-		Catalog.Monitor.setHostHeader ["${added_service_name}"], ["${hostheader}"]
+			Catalog.Monitor.setPath ["${added_service_name}"],["${path}"]
+			Catalog.Monitor.setHostHeader ["${added_service_name}"], ["${hostheader}"]
 		EOF
-    fi
+	fi
 
-    if [[ $(grep "sticky true" "${CONF_DIR}/services/${added_service_name}/config") ]];then
-        echo "Sticky is true, again."
-        sticky="true"
-    fi
+	# Test to see if service should be sticky.
+	if [[ $(grep "session_sticky true" "${CONF_DIR}/services/${added_service_name}/config") -eq 0 ]];then
+		# Set variable to true.
+		sticky=true
+	fi
 
-    if ( ${sticky} ); then
-        echo "sticky"
-        # Create persistence class
+	if ( ${sticky} ); then
+	# Create persistence class
 		${ZCLI} <<- EOF
-		Catalog.Persistence.addPersistence ["${added_service_name}"]
-		Catalog.Persistence.setNote ["${added_service_name}"], ["Created by RightScale - do not modify."]
+			Catalog.Persistence.addPersistence ["${added_service_name}"]
+			Catalog.Persistence.setNote ["${added_service_name}"], ["Created by RightScale - do not modify."]
 		EOF
-    fi
+	fi
 
-    # Compile a list of nodes
-    chefnodes=$(getChefNodeListAsJson "${added_service_name}")
+	# Compile a list of nodes
+	chefnodes=$(getChefNodeListAsJson "${added_service_name}")
 
-    # Create a pool
-    # FIXME: Do only if there are actually servers in this pool.
+	# Create a pool
+	# FIXME: Do only if there are actually servers in this pool.
 	${ZCLI} <<- EOF
-	Pool.addPool ["${added_service_name}"], [${chefnodes}]
-	Pool.setMonitors ["${added_service_name}"], [["${added_service_name}"]]
-	Pool.setNote ["${added_service_name}"], ["Created by RightScale - do not modify."]
+		Pool.addPool ["${added_service_name}"], [${chefnodes}]
+		Pool.setMonitors ["${added_service_name}"], [["${added_service_name}"]]
+		Pool.setNote ["${added_service_name}"], ["Created by RightScale - do not modify."]
 	EOF
 
-    if [[ ${sticky} -eq "true" ]]
-    then
-        echo "Assigning persistence class to pool."
+	if ( ${sticky} );then
+		echo "Assigning persistence class to pool."
 		${ZCLI} <<- EOF
-		Pool.setPersistence ["${added_service_name}"], ["${added_service_name}"]
+			Pool.setPersistence ["${added_service_name}"], ["${added_service_name}"]
 		EOF
-    fi
+	fi
 
-    # Create virtual server
-    echo "${added_service_name}"
+	# Create a virtual server.
 	${ZCLI} <<- EOF
-	VirtualServer.addVirtualServer ["${added_service_name}"], { "default_pool": "${added_service_name}", "port": 80, "protocol": "http" }
-	VirtualServer.setEnabled ["${added_service_name}"], [ "true" ]
-	VirtualServer.setNote ["${added_service_name}"], ["Created by RightScale - do not modify."]
+		VirtualServer.addVirtualServer ["${added_service_name}"], { "default_pool": "${added_service_name}", "port": 80, "protocol": "http" }
+		VirtualServer.setEnabled ["${added_service_name}"], [ "true" ]
+		VirtualServer.setNote ["${added_service_name}"], ["Created by RightScale - do not modify."]
 	EOF
 done
 
 for current_service_name in "${CURRENT_SERVICE_NAMES[@]}"
 do
-    chefnodes=( $(getChefNodeListAsJson "${current_service_name}") )
-    echo "${current_service_name}"
+	chefnodes=( $(getChefNodeListAsJson "${current_service_name}") )
+	poolname=$( sed -e 's/[]["]//g' <( ${ZCLI} <<- EOF
+		VirtualServer.getDefaultPool ["${current_service_name}"]
+	EOF
+	) )
 
-    if [[ "${#chefnodes[@]}" == 0  ]];then
+	if [[ "${#chefnodes[@]}" == 0  ]];then
 
-        if [[ "${poolname}" != "discard" ]];then
-        echo "Pool is set to discard."  
-            # The virtual server should be configured to discard traffic.
-            # The pool should be deleted.
+		if [[ "${poolname}" != "discard" ]];then
+		# The virtual server should be configured to discard traffic.
+		# The pool should be deleted.
 			${ZCLI} <<- EOF
-			VirtualServer.setDefaultPool ["${current_service_name}"], ["discard"]
-			Pool.deletePool ["${current_service_name}"]
+				VirtualServer.setDefaultPool ["${current_service_name}"], ["discard"]
+				Pool.deletePool ["${current_service_name}"]
 			EOF
-        fi
-    else
+		fi
+	else
 
-        if [[ "${poolname}" == "discard"  ]]
-        then
+		# Check to see if the virtual server is currently discarding traffic.
+		if [[ "${poolname}" == "discard"  ]];then
 
+			# Create a pool.
 			${ZCLI} <<- EOF
-			Pool.addPool ["${current_service_name}"], [${chefnodes}]
-			Pool.setMonitors ["${current_service_name}"], [["${current_service_name}"]]
-			Pool.setNote ["${current_service_name}"], ["Created by RightScale - do not modify."]
-			EOF
+				Pool.addPool ["${current_service_name}"], [${chefnodes}]
+				Pool.setMonitors ["${current_service_name}"], [["${current_service_name}"]]
+				Pool.setNote ["${current_service_name}"], ["Created by RightScale - do not modify."]
+				EOF
 
-            if [[ $( grep true ${CONF_DIR}/service/${current_service_name}/sticky ) -eq 0  ]]
-            then
-				echo "Session is sticky."
-				# Create persistence class
+			# Check to see if session_sticky was true.
+			# FIXME: Replace session stickiness test with a function.
+			if [[ $( grep "session_sticky true"  "${CONF_DIR}/service/${current_service_name}/config" ) -eq 0  ]];then
+				# Create persistence class and associate it with the pool.
 				${ZCLI} <<- EOF
-				Catalog.Persistence.addPersistence ["${current_service_name}"]
-				Catalog.Persistence.setNote ["${current_service_name}"], ["Created by RightScale - do not modify."]
-				Pool.setPersistence ["${current_service_name}"], ["${current_service_name}"]
+					Catalog.Persistence.addPersistence ["${current_service_name}"]
+					Catalog.Persistence.setNote ["${current_service_name}"], ["Created by RightScale - do not modify."]
+					Pool.setPersistence ["${current_service_name}"], ["${current_service_name}"]
 				EOF
-            fi
-
+			fi
+			
+			# Change the default pool for the virtual server to the pool (which should now have nodes in it).
 			${ZCLI} <<- EOF
-			VirtualServer.setDefaultPool ["${current_service_name}"], [ "${current_service_name}" ]
+				VirtualServer.setDefaultPool ["${current_service_name}"], [ "${current_service_name}" ]
 			EOF
-        else
+		else
 
-            chefnodesaslines=( $(getChefNodeListAsLines "${current_service_name}") )
-            zclinodes=( $( sort <( sed -e 's/[]["]//g;s/,/\n/g' <( ${ZCLI} <<- EOF
-				Pool.getNodes ["${current_service_name}"]
+			chefnodesaslines=( $(getChefNodeListAsLines "${current_service_name}") )
+			# FIXME: This is ugly, and doesn't quite work when you're removing more than 1 node!
+			zclinodes=( $( sort <( sed -e 's/[]["]//g;s/,/\n/g' <( ${ZCLI} <<- EOF
+					Pool.getNodes ["${current_service_name}"]
 				EOF
-				))))
+			))))
 
-            if [[ "${chefnodesaslines[@]}" != "${zclinodes[@]}" ]];then
-                # Build a list of nodes to add.
-                # Do the add first, in case we are removing all of the currently active nodes.
-                #echo "Chef nodes: ${#chefnodesaslines[@]} - ${chefnodesaslines[@]}"
-                #echo "ZCLI nodes: ${#zclinodes[@]} - ${zclinodes[@]}"
-                nodes_to_add=$(arrayToString $(comm -2 -3 <( catArray ${chefnodesaslines[@]} ) <( catArray ${zclinodes[@]} ) ) )
-                #echo "Nodes to add to the ${current_service_name} pool: ${nodes_to_add}"
-                # Build a list of nodes to remove.
-                nodes_to_remove=$(arrayToString $(comm -1 -3 <( catArray ${chefnodesaslines[@]} ) <( catArray ${zclinodes[@]} ) ) )
-                #echo "Nodes to remove from the ${current_service_name} pool: ${nodes_to_remove}"
+			if [[ ${chefnodesaslines[@]} != ${zclinodes[@]} ]];then
+
+				# Build a list of nodes to add.
+				nodes_to_add=$(arrayToString $(comm -2 -3 <( catArray ${chefnodesaslines[@]} ) <( catArray ${zclinodes[@]} ) ) )
+
+				# Build a list of nodes to remove.
+				nodes_to_remove=$(arrayToString $(comm -1 -3 <( catArray ${chefnodesaslines[@]} ) <( catArray ${zclinodes[@]} ) ) )
+
+				# Add or remove nodes.
+				# FIXME: Need to add logical tests, since there may be no nodes to either add or remove.
 				${ZCLI} <<- EOF
-				Pool.addNodes [ "${current_service_name}" ], [ ${nodes_to_add} ]
-				Pool.removeNodes [ "${current_service_name}" ], [ ${nodes_to_remove} ]
+					Pool.addNodes [ "${current_service_name}" ], [ ${nodes_to_add} ]
+					Pool.removeNodes [ "${current_service_name}" ], [ ${nodes_to_remove} ]
 				EOF
-            fi
-        fi
-    fi
+			fi
+		fi
+	fi
 
 done
 
