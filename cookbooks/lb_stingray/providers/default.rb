@@ -216,7 +216,7 @@ action :detach do
     end
 
     # Delete the backend's config file.
-    file ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d/services", pool_name, backend_id) do
+    file ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d/services", pool_name, "servers" , backend_id) do
         action :delete
         backup false
         notifies :run, resources(:execute => "wrapper")
