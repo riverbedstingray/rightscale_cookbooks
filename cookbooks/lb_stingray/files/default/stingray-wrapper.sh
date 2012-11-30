@@ -143,7 +143,7 @@ for current_service_name in "${CURRENT_SERVICE_NAMES[@]}" "${ADDED_SERVICE_NAMES
 	) )
 
 	# Test if the number of nodes that should be configured is 0.
-	if [[ !"${chefnodes}" ]];then
+	if [[ ! -n "${chefnodes}" ]];then
 
 		if [[ "${poolname}" != discard ]];then
 		# The virtual server should be configured to discard traffic.
@@ -156,7 +156,7 @@ for current_service_name in "${CURRENT_SERVICE_NAMES[@]}" "${ADDED_SERVICE_NAMES
 	else
 
 		# Check to see if the virtual server is currently discarding traffic.
-		if [[ "${poolname}" == discard  ]];then
+		if [[ "${poolname}" = discard  ]];then
 
 			# Create a pool.
 			${ZCLI} <<- EOF
