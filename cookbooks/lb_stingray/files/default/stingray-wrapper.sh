@@ -6,6 +6,7 @@
 # Written for RightScale's v13 lineage of ServerTemplate.
 
 set -x
+set -v
 #shopt -s nullglob
 
 ZEUSHOME=/opt/riverbed
@@ -15,72 +16,54 @@ ZCLI=${ZEUSHOME}/zxtm/bin/zcli
 SAVEIFS=$IFS
 IFS=$(echo -en "\n\b")
 
-function catArray {
-
-for item in "${@}"
-do
-    printf "%s\n" "${item}"
-done
+function printfArray {
+# Convert an array object to multi-line output (for piping/redirecting)
+	for item in "${@}"
+	do
+	    printf "%s\n" "${item}"
+	done
 
 }
 
 function arrayToString {
-
-    j=1
+# Convert an array to a JSON-friendly string.
+    i=0
     declare -a array=("${@}")
     #echo "Array to string: ${array[@]}"
     for item in "${array[@]}"
     do
+        let "i += 1"
         printf "\"%s\"" "$item"
-        if [ "$j" -lt "${#array[@]}" ]; then
+        if ((i < ${#array[@]}));then
             printf ","
         fi
-        let "j += 1"
     done
 
 }
 
-function getChefNodeListAsLines {
-	if [[ $(ls -1 "${CONF_DIR}"/services/"${1}"/servers | wc -l) -gt 0 ]]
-	then
-	    j=1
-		local chefNodeArray=( $( cat "${CONF_DIR}"/services/"${1}"/servers/* | sort ) ) 
-	    for i in "${chefNodeArray[@]}"
-	    do
-		printf "%s" "$i"
-		if [ "$j" -lt "${#chefNodeArray[@]}" ]; then
-		    printf "\n"
+function getServerNodeListAs {
+	i=0
+	_servers=( $(find "${CONF_DIR}/services/${2}/servers/" -type f | sort) )
+	for server in "${_servers[@]}"; do
+		let i="$i+1"
+		if [[ $1 == json ]];then
+			echo -n \"$(cat "${server}")\"
+			if ((i < ${#_servers[@]}));then
+			    printf ","
+			fi
+		elif [[ $1 == lines ]];then
+			printf "%s\n" $(cat "${server}")
 		fi
-		let "j += 1"
-	    done
-	fi
-}
-
-function getChefNodeListAsJson {
-# FIXME: Do this in chef/ruby rather than here.
-    if [[ $(ls -1 "${CONF_DIR}"/services/"${1}"/servers | wc -l) -gt 0 ]]
-    then
-        j=1
-        chefNodeArray=( $( cat "${CONF_DIR}"/services/"${1}"/servers/* | sort ) ) 
-
-        for i in "${chefNodeArray[@]}"
-        do
-            printf "\"%s\"" "$i"
-            if [ "$j" -lt "${#chefNodeArray[@]}" ]; then
-                printf ","
-            fi
-            let "j += 1"
-        done
-    fi
+	done
 }
 
 stingray_config=( $(ls -1 /opt/riverbed/zxtm/conf/vservers | sort) )
 chef_config=( $(ls -1 ${CONF_DIR}/services | sort) )
 
 # Services to be created.
-ADDED_SERVICE_NAMES=( $(comm -1 -3 <( catArray ${stingray_config[@]} ) <( catArray ${chef_config[@]} ) ) )
-CURRENT_SERVICE_NAMES=( $(comm -1 -2 <( catArray ${stingray_config[@]} ) <( catArray ${chef_config[@]} ) ) )
-DELETED_SERVICE_NAMES=( $(comm -2 -3 <( catArray ${stingray_config[@]} ) <( catArray ${chef_config[@]} ) ) )
+ADDED_SERVICE_NAMES=( $(comm -1 -3 <( printfArray ${stingray_config[@]} | sort ) <( printfArray ${chef_config[@]} | sort ) ) )
+CURRENT_SERVICE_NAMES=( $(comm -1 -2 <( printfArray ${stingray_config[@]} | sort ) <( printfArray ${chef_config[@]} | sort ) ) )
+DELETED_SERVICE_NAMES=( $(comm -2 -3 <( printfArray ${stingray_config[@]} | sort ) <( printfArray ${chef_config[@]} | sort ) ) )
 
 # Delete undesired services.
 for deleted_service_name in "${DELETED_SERVICE_NAMES[@]}"
@@ -130,7 +113,7 @@ for added_service_name in "${ADDED_SERVICE_NAMES[@]}";do
 	fi
 
 	# Test to see if service should be sticky.
-	if [[ $(grep "session_sticky true" "${CONF_DIR}/services/${added_service_name}/config") -eq 0 ]];then
+	if grep "session_sticky true" "${CONF_DIR}/services/${added_service_name}/config";then
 		# Set variable to true.
 		sticky=true
 	fi
@@ -143,41 +126,24 @@ for added_service_name in "${ADDED_SERVICE_NAMES[@]}";do
 		EOF
 	fi
 
-	# Compile a list of nodes
-	chefnodes=$(getChefNodeListAsJson "${added_service_name}")
-
-	# Create a pool
-	# FIXME: Do only if there are actually servers in this pool.
-	${ZCLI} <<- EOF
-		Pool.addPool ["${added_service_name}"], [${chefnodes}]
-		Pool.setMonitors ["${added_service_name}"], [["${added_service_name}"]]
-		Pool.setNote ["${added_service_name}"], ["Created by RightScale - do not modify."]
-	EOF
-
-	if ( ${sticky} );then
-		echo "Assigning persistence class to pool."
-		${ZCLI} <<- EOF
-			Pool.setPersistence ["${added_service_name}"], ["${added_service_name}"]
-		EOF
-	fi
-
 	# Create a virtual server.
 	${ZCLI} <<- EOF
-		VirtualServer.addVirtualServer ["${added_service_name}"], { "default_pool": "${added_service_name}", "port": 80, "protocol": "http" }
+		VirtualServer.addVirtualServer ["${added_service_name}"], { "default_pool": "discard", "port": 80, "protocol": "http" }
 		VirtualServer.setEnabled ["${added_service_name}"], [ "true" ]
 		VirtualServer.setNote ["${added_service_name}"], ["Created by RightScale - do not modify."]
 	EOF
 done
 
-for current_service_name in "${CURRENT_SERVICE_NAMES[@]}"
-do
-	chefnodes=( $(getChefNodeListAsJson "${current_service_name}") )
+for current_service_name in "${CURRENT_SERVICE_NAMES[@]}" "${ADDED_SERVICE_NAMES[@]}";do
+
+	chefnodes=$(getServerNodeListAs json "${current_service_name}")
 	poolname=$( sed -e 's/[]["]//g' <( ${ZCLI} <<- EOF
 		VirtualServer.getDefaultPool ["${current_service_name}"]
 	EOF
 	) )
 
-	if [[ "${#chefnodes[@]}" == 0  ]];then
+	# Test if the number of nodes that should be configured is 0.
+	if [[${chefnodes} -eq ]];then
 
 		if [[ "${poolname}" != discard ]];then
 		# The virtual server should be configured to discard traffic.
@@ -200,8 +166,7 @@ do
 				EOF
 
 			# Check to see if session_sticky was true.
-			# FIXME: Replace session stickiness test with a function.
-			if [[ $( grep "session_sticky true"  "${CONF_DIR}/services/${current_service_name}/config" ) -eq 0  ]];then
+			if grep "session_sticky true"  "${CONF_DIR}/services/${current_service_name}/config";then
 				# Create persistence class and associate it with the pool.
 				${ZCLI} <<- EOF
 					Catalog.Persistence.addPersistence ["${current_service_name}"]
@@ -216,20 +181,19 @@ do
 			EOF
 		else
 
-			chefnodesaslines=( $(getChefNodeListAsLines "${current_service_name}") )
-			# FIXME: This is ugly, and doesn't quite work when you're removing more than 1 node!
+			chefnodesaslines=( $(getServerNodeListAs lines "${current_service_name}" | sort ) )
 			zclinodes=( $( sort <( sed -e 's/[]["]//g;s/,/\n/g' <( ${ZCLI} <<- EOF
 					Pool.getNodes ["${current_service_name}"]
 				EOF
 			))))
 
-			if [[ ${chefnodesaslines[@]} != ${zclinodes[@]} ]];then
+			if [[ ${chefnodesaslines[@]} != "${zclinodes[@]}" ]];then
 
-				# Build a list of nodes to add.
-				nodes_to_add=$(arrayToString $(comm -2 -3 <( catArray ${chefnodesaslines[@]} ) <( catArray ${zclinodes[@]} ) ) )
+				# Build a formatted list of nodes to add.
+				nodes_to_add=$(arrayToString $(comm -2 -3 <( printfArray ${chefnodesaslines[@]} | sort ) <( printfArray ${zclinodes[@]} | sort ) ) )
 
-				# Build a list of nodes to remove.
-				nodes_to_remove=$(arrayToString $(comm -1 -3 <( catArray ${chefnodesaslines[@]} ) <( catArray ${zclinodes[@]} ) ) )
+				# Build a formatted list of nodes to remove.
+				nodes_to_remove=$(arrayToString $(comm -1 -3 <( printfArray ${chefnodesaslines[@]} | sort ) <( printfArray ${zclinodes[@]} | sort ) ) )
 
 				# Add or remove nodes.
 				# FIXME: Need to add logical tests, since there may be no nodes to either add or remove.
