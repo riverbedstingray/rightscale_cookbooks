@@ -81,7 +81,7 @@ action :install do
         )
     end
 
-	file "/tmp/stingray-licencse.txt" do
+	file "/tmp/stingray-license.txt" do
 		action :nothing
 	end
 
