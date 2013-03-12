@@ -26,6 +26,13 @@ enabled.  A JRE must be installed on the host in order for this to function.",
 :recipes => [ "lb_stingray::default" ],
 :default => "no"
 
+attribute 'lb_stingray/version',
+:display_name => "Version",
+:description => "Software version to install (eg. 9.1)",
+:required => "required",
+:type => string,
+:recipes => ["lb_stingray::default"]
+
 attribute 'lb_stingray/password',
 :display_name => "Stingray Administrative Password",
 :description => "The password that you would like to use to access Stingray's
