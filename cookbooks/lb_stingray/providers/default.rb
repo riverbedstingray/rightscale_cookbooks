@@ -11,6 +11,9 @@ action :install do
     full_version = node[:lb_stingray][:version]
 
     # TODO: Add in a check to ensure we've received a valid version number.
+    if(! version =~ /^[0-9]{1,2}\.[0-9](r[0-9]){0,1}$/)
+        # EXPLODE!!!!!!!!!
+    end 
 
     # Convert to the version number we actually use
     version = full_version.gsub(".", "")
