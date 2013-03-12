@@ -7,7 +7,15 @@ include RightScale::LB::Helper
 
 action :install do
 
-    version = "90"
+    # Read in pretty version of the version number (include "." so as not to confuse people!)
+    full_version = node[:lb_stingray][:version]
+
+    # TODO: Add in a check to ensure we've received a valid version number.
+
+    # Convert to the version number we actually use
+    version = full_version.gsub(".", "")
+
+    # Hard-code architecture
     arch = "x86_64"
 
     # Read rightlink tag in order to find out whether we need to install a gold version.
@@ -17,7 +25,8 @@ action :install do
         packagename = "ZeusTM_#{version}_Linux-#{arch}"
     end
 
-    s3bucket = "http://s3.amazonaws.com/stingray-rightscale-90-a57a56ee8b4936501ffa85c76fa3dc9e/"
+    # Set the URL of the installation file location in S3
+    s3bucket = "http://s3.amazonaws.com/stingray-rightscale-#{version}-a57a56ee8b4936501ffa85c76fa3dc9e/"
 
     # The temporary directory that the binary package will be extracted to.
     directory "/tmp/#{packagename}" do
