@@ -1,13 +1,31 @@
 # 
 # Cookbook Name:: lb_stingray
+# Provider:: default
 #
 # Copyright Riverbed, Inc. All rights reserved.
 #
+
 include RightScale::LB::Helper
 
 action :install do
 
-    version = "90"
+    # Read in pretty version of the version number (include "." so as not to confuse people!)
+    full_version = node[:lb_stingray][:software_version]
+
+
+    # Check to ensure we've received a valid version number and bail out if not.
+    if not full_version =~ /^[0-9]{1,2}\.[0-9](r[1-9]){0,1}$/
+        raise "An invalid version number was provided. Installation aborted."
+    end 
+
+    # Convert to the version number we actually use
+    version = full_version.gsub(".", "")
+
+    # Read in the MD5 hash (binary_hash attribute) of the software binary.  This is used in the 
+    #   S3 path and to validate the download.
+    binary_hash = node[:lb_stingray][:binary_hash]
+
+    # Hard-code architecture
     arch = "x86_64"
 
     # Read rightlink tag in order to find out whether we need to install a gold version.
@@ -17,10 +35,11 @@ action :install do
         packagename = "ZeusTM_#{version}_Linux-#{arch}"
     end
 
-    s3bucket = "http://s3.amazonaws.com/stingray-rightscale-90-a57a56ee8b4936501ffa85c76fa3dc9e/"
+    # Set the URL of the installation file location in S3
+    s3bucket = "http://s3.amazonaws.com/stingray-rightscale-#{version}-#{binary_hash}/"
 
     # The temporary directory that the binary package will be extracted to.
-    directory "/tmp/#{packagename}" do
+    directory "/tmp/ZeusTM_#{version}_Linux-#{arch}" do
        recursive true
        action :nothing
     end
@@ -35,6 +54,7 @@ action :install do
        cwd "/tmp"
        # Resume partial transfers, print no console output.
        command "wget --continue --quiet #{s3bucket}#{packagename}.tgz"
+       # TODO: check the MD5 hash of the downloaded file against the expected value and EXPLODE if necessary
     end
 
     # Replay file for non-interactive installation of Stingray.
@@ -51,11 +71,10 @@ action :install do
         creates "/opt/riverbed"
         cwd "/tmp"
         command "\
-        tar xzvf #{packagename}.tgz &&
-        #{packagename}/zinstall --replay-from=/tmp/install_replay"
+        tar xzvf #{packagename}.tgz && ZeusTM_#{version}_Linux-#{arch}/zinstall --replay-from=/tmp/install_replay"
         notifies :delete, resources(
             :file => "/tmp/#{packagename}.tgz",
-            :directory => "/tmp/#{packagename}",
+            :directory => "/tmp/ZeusTM_#{version}_Linux-#{arch}",
             :template => "/tmp/install_replay"
         ), :delayed
     end

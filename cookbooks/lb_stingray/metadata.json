@@ -1,76 +1,102 @@
 {
-  "providing": {
-  },
-  "recommendations": {
-  },
-  "replacing": {
-  },
-  "groupings": {
-  },
-  "attributes": {
-    "lb_stingray/java_enabled": {
-      "type": "string",
-      "default": "no",
-      "calculated": false,
-      "display_name": "Java Extensions",
-      "choice": [
-        "no",
-        "yes"
-      ],
-      "recipes": [
-        "lb_stingray::default"
-      ],
-      "description": "Whether or not Java Extensions for TrafficScript should be\nenabled.  A JRE must be installed on the host in order for this to function.",
-      "required": "recommended"
-    },
-    "lb_stingray/password": {
-      "type": "string",
-      "calculated": false,
-      "display_name": "Stingray Administrative Password",
-      "choice": [
-
-      ],
-      "recipes": [
-        "lb_stingray::default"
-      ],
-      "description": "The password that you would like to use to access Stingray's\nuser interface, using the 'admin' user.  This should be a RightScale\ncredential/password. Example: cred:STINGRAY_ADMIN_PASSWORD",
-      "required": "required"
-    },
-    "lb_stingray/generic_binary": {
-      "type": "string",
-      "default": "false",
-      "calculated": false,
-      "display_name": "Stingray Generic Binary",
-      "choice": [
-        "false",
-        "true"
-      ],
-      "recipes": [
-        "lb_stingray::default"
-      ],
-      "description": "Indicates whether a generic binary, or a RightScale-specifc\nbinary should be used.  Do not change this value.",
-      "required": "recommended"
-    }
-  },
-  "platforms": {
-  },
-  "maintainer": "Riverbed Technology, Inc.",
-  "maintainer_email": "support@rightscale.com",
-  "version": "13.2.0",
-  "license": "Copyright RightScale, Inc. All rights reserved.",
   "name": "lb_stingray",
-  "recipes": {
-    "lb_stingray::default": "This loads the required 'lb' resource using the\nStingray provider."
-  },
-  "suggestions": {
+  "description": "Installs/Configures lb_stingray",
+  "long_description": "# Riverbed Stingray Traffic Manager on RightScale Cookbook\n\n# Details\n\nThis cookbook provides integration between RightScale's LB interface and\nRiverbed Stingray Traffic Manager.  It handles all of the installation and\nprovides recipes/actions for attaching and detaching application servers\naccording to the \"Infinity\" lineage of RightScale's ServerTemplates.\n\n## Description\n\nThe load balancer and application server attach/detach recipes are designed so\nthe servers can locate each other using RightScale machine tags.  The load\nbalancer servers have tags of the form `loadbalancer:lb=APPLISTENER_NAME` where\n`APPLISTENER_NAME` is the name of the application that the application servers\nare serving; the application server attach and detach recipes use this machine\ntag to request that corresponding handler recipes are run on the matching load\nbalancers when they need to attach or detach. The application servers have tags\nof the form `loadbalancer:app=APPLISTENER_NAME`, `server:uuid=UUID`, and\n`loadbalancer:backend_ip=IP_ADDRESS` where `APPLISTENER` is the same application\nname, `UUID` is a unique string that identifies the server, and `IP_ADDRESS` is\nthe IP address of the server; the automatic detection recipe for the load\nbalancer servers use these tags to find which application servers are currently\navailable. This mechanism was chosen to support machines in multiple\navailability zones where in the case of failures, load balancers and application\nservers may start while some machines, including RightScale, are not reachable\nand thus the configuration cannot be fully determined. For this reason, the\nautomatic detection recipe is configured to run every 15 minutes by default.\n\n## Requirements\n\nThis particular branch (currently) requires use of the **Infinity** lineage\nServerTemplate by RightScale.  It is not fully compatible with the **LTS**\nlineage.\n\n## Setup\n\nBy default load balancer has only one pool called **default**, which act as a\ndefault pool for all application servers which has `loadbalancer::app=default`\ntag. To setup multiple pools configuration, lb/pools input value must be\noverridden with comma-separated list of **URIs** or **FQDNs** for which the load\nbalancer will create server pools to answer website requests. Last entry will be\nthe default backend and will answer for all URIs and FQDNs not listed in\nlb/pools input. Any combination of URIs or FQDNs or web root relative path can\nbe entered.  Application servers may provide any numbers of URIs or FQDNs to\njoin corresponding server pool backends.\n\n## Usage\n\n### Template Inputs\n\n#### lb\\_stingray/generic\\_binary\n\nThis parameter is not meant to be changed by the end user.  It selects a version\nof software binary that is compatible with the license key that is being used.\nIf this value is changed, it's very likely that an instance will fail to\nconverge.\n\n#### lb\\_stingray/software\\_version\n\nThis parameter is not meant to be changed by the end user.  It selects a version\nof the software to install and is only present to avoid cookbook duplication.\n\n#### lb\\_stingray/binary\\_hash\n\nThis parameter is not meant to be changed by the end user.  It contains an MD5 \nhash of the software install package to validate the download.\n\n#### lb\\_stingray/java\\_enabled\n\nThis is used to specify whether or not Java Extensions should be enabled on the\nTraffic Manager.  If you would like to use Java Extensions for Stingray, you\nwill need to ensure that your ServerTemplate has an appropriate JRE installation\nscript.  If this is parameter is enabled, and there is no JRE available, the\ntraffic manager will boot into a state of error (because it won't be able to\nfind **java**, but will still be functional.\n\n#### lb\\_stingray/password\n\nThis is used to set the password for the **admin** user when instances are\nlaunched.  It is highly recommended that you set a **credential** using\nRightScale's facilities (under **design** --> **credentials**).  Only\ntext-passwords are supported.  This is the only input parameter that is\nrequired.\n\n### Application Server Attach\n\n#### do\\_attach\\_request\n\nThis recipe is used by application servers to request that load balancer servers\nconfigure themselves to attach to the application server. It requests that\nservers with the `loadbalancer:lb=APPLISTENER_NAME` tag run the corresponding\n**handle_attach** recipe. The recipe sends the server's IP address, port and\ninstance `UUID` as parameters to the remote recipe.\n\n#### handle\\_attach\n\nThis recipe is used by the load balancer servers to reconfigure Stingray when an\napplication server requests to be attached. It uses the IP address, port and\ninstance UUID parameters it receives from the **do_attach_request** recipe\ncalled on the application server to construct an individual configuration file\nin the `/etc/stingray/lb_stingray.d/services/POOLNAME/servers` directory with\nthe instance UUID as the file name. If the file didn't exist before or if its\ncontents change, the main Stingray configuration information is updated by the\n**stingray-wrapper.sh** shell script.\n\n### Application Server Detach\n\n#### do\\_detach\\_request\n\nThis recipe is used by application servers to request that load balancer servers\nconfigure themselves to detach from the application server. It request that\nservers with the `loadbalancer:lb=APPLISTENER_NAME` tag run the corresponding\n**handle_detach** recipe. The recipe sends the server's instance UUID as\nparameter to the remote recipe.\n\n#### handle\\_detach\\_request\n\nThis recipe is used by the load balancer servers to reconfigure Stingray when an\napplication server requests to be detached. It uses the instance UUID parameter\nit receives from the **do_detach_request** recipe called on the application\nserver to delete the corresponding file from the\n`/etc/stingray/lb_stingray.d/services/POOLNAME/servers` directory which has the\ninstance UUID as its file name. If the file was deleted, the main Stingray\nconfiguration information is updated by the **stingray-wrapper.sh** shell\nscript.\n\n### Automatic Server Detection\n\n#### do\\_attach\\_all\n\nThis recipe is used by the load balancer to automatically detect if application\nservers have disappeared or reappeared without detaching or reattaching using\nthe other recipes. This recipe is set to run in the periodic re-converge which\ndefaults to a period of 15 minutes between runs. It uses the\n`loadbalancer:app=APPLISTENER_NAME`, `server:uuid=UUID`, and\n`loadbalancer:backend_ip=IP_ADDRESS` tags to get a list of all of the\napplication servers that are currently available and uses the list to create,\nupdate, or delete individual server configuration files in the\n`/etc/stingray/lb_stingray.d/services/POOLNAME/servers` directory depending on\ntheir current status. If any of the files in the `lb_stingray.d` directory have\nbeen created, changed, or deleted, the main Stingray configuration is updated by\nthe **stingray-wrapper.sh** shell script.\n\n### Known Limitations\n\nCurrently, multiple values in the **lb/pools** input field are not supported,\nbut this is likely to change very soon.\n\n# License\n\nCopyright Riverbed Technology, Inc. All rights reserved. All access and use\nsubject to the Riverbed Terms of Service available at www.riverbed.com/license.\n",
+  "maintainer": "Riverbed Technology, Inc.",
+  "maintainer_email": "mgeldert@riverbed.com",
+  "license": "Copyright Riverbed, Inc. All rights reserved.",
+  "platforms": {
   },
   "dependencies": {
     "rightscale": ">= 0.0.0",
     "app": ">= 0.0.0",
     "lb": ">= 0.0.0"
   },
-  "description": "Installs/Configures lb_stingray",
+  "recommendations": {
+  },
+  "suggestions": {
+  },
   "conflicting": {
   },
-  "long_description": "# Riverbed Stingray Traffic Manager on RightScale Cookbook\n\n# Details\n\nThis cookbook provides integration between RightScale's LB interface and\nRiverbed Stingray Traffic Manager.  It handles all of the installation and\nprovides recipes/actions for attaching and detaching application servers\naccording to the \"Infinity\" lineage of RightScale's ServerTemplates.\n\n## Description\n\nThe load balancer and application server attach/detach recipes are designed so\nthe servers can locate each other using RightScale machine tags.  The load\nbalancer servers have tags of the form `loadbalancer:lb=APPLISTENER_NAME` where\n`APPLISTENER_NAME` is the name of the application that the application servers\nare serving; the application server attach and detach recipes use this machine\ntag to request that corresponding handler recipes are run on the matching load\nbalancers when they need to attach or detach. The application servers have tags\nof the form `loadbalancer:app=APPLISTENER_NAME`, `server:uuid=UUID`, and\n`loadbalancer:backend_ip=IP_ADDRESS` where `APPLISTENER` is the same application\nname, `UUID` is a unique string that identifies the server, and `IP_ADDRESS` is\nthe IP address of the server; the automatic detection recipe for the load\nbalancer servers use these tags to find which application servers are currently\navailable. This mechanism was chosen to support machines in multiple\navailability zones where in the case of failures, load balancers and application\nservers may start while some machines, including RightScale, are not reachable\nand thus the configuration cannot be fully determined. For this reason, the\nautomatic detection recipe is configured to run every 15 minutes by default.\n\n## Requirements\n\nThis particular branch (currently) requires use of the **Infinity** lineage\nServerTemplate by RightScale.  It is not fully compatible with the **LTS**\nlineage.\n\n## Setup\n\nBy default load balancer has only one pool called **default**, which act as a\ndefault pool for all application servers which has `loadbalancer::app=default`\ntag. To setup multiple pools configuration, lb/pools input value must be\noverridden with comma-separated list of **URIs** or **FQDNs** for which the load\nbalancer will create server pools to answer website requests. Last entry will be\nthe default backend and will answer for all URIs and FQDNs not listed in\nlb/pools input. Any combination of URIs or FQDNs or web root relative path can\nbe entered.  Application servers may provide any numbers of URIs or FQDNs to\njoin corresponding server pool backends.\n\n## Usage\n\n### Template Inputs\n\n#### lb\\_stingray/generic\\_binary\n\nThis parameter is not meant to be changed by the end user.  It selects a version\nof software binary that is compatible with the license key that is being used.\nIf this value is changed, it's very likely that an instance will fail to\nconverge.\n\n#### lb\\_stingray/java\\_enabled\n\nThis is used to specify whether or not Java Extensions should be enabled on the\nTraffic Manager.  If you would like to use Java Extensions for Stingray, you\nwill need to ensure that your ServerTemplate has an appropriate JRE installation\nscript.  If this is parameter is enabled, and there is no JRE available, the\ntraffic manager will boot into a state of error (because it won't be able to\nfind **java**, but will still be functional.\n\n#### lb\\_stingray/password\n\nThis is used to set the password for the **admin** user when instances are\nlaunched.  It is highly recommended that you set a **credential** using\nRightScale's facilities (under **design** --> **credentials**).  Only\ntext-passwords are supported.  This is the only input parameter that is\nrequired.\n\n### Application Server Attach\n\n#### do\\_attach\\_request\n\nThis recipe is used by application servers to request that load balancer servers\nconfigure themselves to attach to the application server. It requests that\nservers with the `loadbalancer:lb=APPLISTENER_NAME` tag run the corresponding\n**handle_attach** recipe. The recipe sends the server's IP address, port and\ninstance `UUID` as parameters to the remote recipe.\n\n#### handle\\_attach\n\nThis recipe is used by the load balancer servers to reconfigure Stingray when an\napplication server requests to be attached. It uses the IP address, port and\ninstance UUID parameters it receives from the **do_attach_request** recipe\ncalled on the application server to construct an individual configuration file\nin the `/etc/stingray/lb_stingray.d/services/POOLNAME/servers` directory with\nthe instance UUID as the file name. If the file didn't exist before or if its\ncontents change, the main Stingray configuration information is updated by the\n**stingray-wrapper.sh** shell script.\n\n### Application Server Detach\n\n#### do\\_detach\\_request\n\nThis recipe is used by application servers to request that load balancer servers\nconfigure themselves to detach from the application server. It request that\nservers with the `loadbalancer:lb=APPLISTENER_NAME` tag run the corresponding\n**handle_detach** recipe. The recipe sends the server's instance UUID as\nparameter to the remote recipe.\n\n#### handle\\_detach\\_request\n\nThis recipe is used by the load balancer servers to reconfigure Stingray when an\napplication server requests to be detached. It uses the instance UUID parameter\nit receives from the **do_detach_request** recipe called on the application\nserver to delete the corresponding file from the\n`/etc/stingray/lb_stingray.d/services/POOLNAME/servers` directory which has the\ninstance UUID as its file name. If the file was deleted, the main Stingray\nconfiguration information is updated by the **stingray-wrapper.sh** shell\nscript.\n\n### Automatic Server Detection\n\n#### do\\_attach\\_all\n\nThis recipe is used by the load balancer to automatically detect if application\nservers have disappeared or reappeared without detaching or reattaching using\nthe other recipes. This recipe is set to run in the periodic re-converge which\ndefaults to a period of 15 minutes between runs. It uses the\n`loadbalancer:app=APPLISTENER_NAME`, `server:uuid=UUID`, and\n`loadbalancer:backend_ip=IP_ADDRESS` tags to get a list of all of the\napplication servers that are currently available and uses the list to create,\nupdate, or delete individual server configuration files in the\n`/etc/stingray/lb_stingray.d/services/POOLNAME/servers` directory depending on\ntheir current status. If any of the files in the `lb_stingray.d` directory have\nbeen created, changed, or deleted, the main Stingray configuration is updated by\nthe **stingray-wrapper.sh** shell script.\n\n### Known Limitations\n\nCurrently, multiple values in the **lb/pools** input field are not supported,\nbut this is likely to change very soon.\n\n# License\n\nCopyright Riverbed Technology, Inc. All rights reserved. All access and use\nsubject to the Riverbed Terms of Service available at www.riverbed.com/license.\n"
+  "providing": {
+  },
+  "replacing": {
+  },
+  "attributes": {
+    "lb_stingray/java_enabled": {
+      "display_name": "Java Extensions",
+      "description": "Whether or not Java Extensions for TrafficScript should be\nenabled.  A JRE must be installed on the host in order for this to function.",
+      "choice": [
+        "no",
+        "yes"
+      ],
+      "required": "recommended",
+      "type": "string",
+      "recipes": [
+        "lb_stingray::default"
+      ],
+      "default": "no",
+      "calculated": false
+    },
+    "lb_stingray/software_version": {
+      "display_name": "Software Version",
+      "description": "Software version to install (eg. 9.0r1 or 9.1). DO NOT CHANGE THIS VALUE.",
+      "required": "required",
+      "type": "string",
+      "recipes": [
+        "lb_stingray::default"
+      ],
+      "choice": [
+
+      ],
+      "calculated": false
+    },
+    "lb_stingray/binary_hash": {
+      "display_name": "Binary Hash",
+      "description": "MD5 hash of the software binary to install. DO NOT CHANGE THIS VALUE.",
+      "required": "required",
+      "type": "string",
+      "recipes": [
+        "lb_stingray::default"
+      ],
+      "choice": [
+
+      ],
+      "calculated": false
+    },
+    "lb_stingray/password": {
+      "display_name": "Stingray Administrative Password",
+      "description": "The password that you would like to use to access Stingray's\nuser interface, using the 'admin' user.  This should be a RightScale\ncredential/password. Example: cred:STINGRAY_ADMIN_PASSWORD",
+      "required": "required",
+      "recipes": [
+        "lb_stingray::default"
+      ],
+      "choice": [
+
+      ],
+      "calculated": false,
+      "type": "string"
+    },
+    "lb_stingray/generic_binary": {
+      "display_name": "Stingray Generic Binary",
+      "description": "Indicates whether a generic binary, or a RightScale-specifc\nbinary should be used.  DO NOT CHANGE THIS VALUE.",
+      "choice": [
+        "false",
+        "true"
+      ],
+      "required": "recommended",
+      "type": "string",
+      "recipes": [
+        "lb_stingray::default"
+      ],
+      "default": "false",
+      "calculated": false
+    }
+  },
+  "groupings": {
+  },
+  "recipes": {
+    "lb_stingray::default": "This loads the required 'lb' resource using the\nStingray provider."
+  },
+  "version": "13.3.0"
 }
