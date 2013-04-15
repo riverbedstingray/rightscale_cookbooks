@@ -10,9 +10,10 @@ action :install do
     # Read in pretty version of the version number (include "." so as not to confuse people!)
     full_version = node[:lb_stingray][:version]
 
-    # TODO: Add in a check to ensure we've received a valid version number.
-    if(! version =~ /^[0-9]{1,2}\.[0-9](r[0-9]){0,1}$/)
-        # EXPLODE!!!!!!!!!
+    # Check to ensure we've received a valid version number.
+    if not version =~ /^[0-9]{1,2}\.[0-9](r[1-9]){0,1}$/
+        log "An invalid Stingray version number was detected."
+        # TODO: bail out somehow
     end 
 
     # Convert to the version number we actually use
