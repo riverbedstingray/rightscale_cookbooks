@@ -12,7 +12,8 @@
     "lb_clb": ">= 0.0.0",
     "lb_elb": ">= 0.0.0",
     "apache2": ">= 0.0.0",
-    "app": ">= 1.0"
+    "app": ">= 1.0",
+    "lb_stingray": ">= 0.0.0"
   },
   "recommendations": {
   },

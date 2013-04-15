@@ -14,6 +14,7 @@ depends "lb_clb"
 depends "lb_elb"
 depends "apache2"
 depends "app", ">= 1.0"
+depends "lb_stingray"
 
 recipe "lb::default",
   "This loads the required load balancer resources."

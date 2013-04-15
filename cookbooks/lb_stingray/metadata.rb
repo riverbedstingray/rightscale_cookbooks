@@ -33,9 +33,9 @@ attribute 'lb_stingray/software_version',
 :type => "string",
 :recipes => ["lb_stingray::default"]
 
-attribute 'lb_stingray/binary_hash',
-:display_name => "Binary Hash",
-:description => "MD5 hash of the software binary to install. DO NOT CHANGE THIS VALUE.",
+attribute 'lb_stingray/path_hash',
+:display_name => "Path Hash",
+:description => "MD5 hash included in path of software binary to install. DO NOT CHANGE THIS VALUE.",
 :required => "required",
 :type => "string",
 :recipes => ["lb_stingray::default"]
