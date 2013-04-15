@@ -21,9 +21,8 @@ action :install do
     # Convert to the version number we actually use
     version = full_version.gsub(".", "")
 
-    # Read in the MD5 hash (binary_hash attribute) of the software binary.  This is used in the 
-    #   S3 path and to validate the download.
-    binary_hash = node[:lb_stingray][:binary_hash]
+    # Read in the MD5 hash (path_hash attribute) of the software binary.  This is used in the S3 path.
+    path_hash = node[:lb_stingray][:path_hash]
 
     # Hard-code architecture
     arch = "x86_64"
@@ -36,7 +35,7 @@ action :install do
     end
 
     # Set the URL of the installation file location in S3
-    s3bucket = "http://s3.amazonaws.com/stingray-rightscale-#{version}-#{binary_hash}/"
+    s3bucket = "http://s3.amazonaws.com/stingray-rightscale-#{version}-#{path_hash}/"
 
     # The temporary directory that the binary package will be extracted to.
     directory "/tmp/ZeusTM_#{version}_Linux-#{arch}" do
