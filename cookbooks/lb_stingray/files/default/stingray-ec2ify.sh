@@ -21,9 +21,8 @@ fi
 
 if [[ -h /opt/riverbed/zxtm/global.cfg ]]
 then
-
     echo "ec2!availability_zone ${1}" >> /opt/riverbed/zxtm/global.cfg
     echo "ec2!instanceid ${2}" >> /opt/riverbed/zxtm/global.cfg
     echo "externalip EC2" >> /opt/riverbed/zxtm/global.cfg
-
+    echo 'ec2!macs!'$(ifconfig | grep eth0 | awk '{ print $5 }')'!secondary_ips' >> /opt/riverbed/zxtm/global.cfg
 fi
