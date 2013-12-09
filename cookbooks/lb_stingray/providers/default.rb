@@ -66,16 +66,30 @@ action :install do
     end
 
     # Unpack tarball and install software package
-    execute "deploy_binaries" do
-        creates "/opt/riverbed"
-        cwd "/tmp"
-        command "\
-        tar xzvf #{packagename}.tgz && ZeusTM_#{version}_Linux-#{arch}/zinstall --replay-from=/tmp/install_replay"
-        notifies :delete, resources(
-            :file => "/tmp/#{packagename}.tgz",
-            :directory => "/tmp/ZeusTM_#{version}_Linux-#{arch}",
-            :template => "/tmp/install_replay"
-        ), :delayed
+    if node["cloud"]["provider"] == "ec2" then
+        execute "deploy_binaries" do
+            creates "/opt/riverbed"
+            cwd "/tmp"
+            command "\
+            tar xzvf #{packagename}.tgz && ZeusTM_#{version}_Linux-#{arch}/zinstall --ec2 --replay-from=/tmp/install_replay"
+            notifies :delete, resources(
+                :file => "/tmp/#{packagename}.tgz",
+                :directory => "/tmp/ZeusTM_#{version}_Linux-#{arch}",
+                :template => "/tmp/install_replay"
+            ), :delayed
+        end
+    else
+        execute "deploy_binaries" do
+            creates "/opt/riverbed"
+            cwd "/tmp"
+            command "\
+            tar xzvf #{packagename}.tgz && ZeusTM_#{version}_Linux-#{arch}/zinstall --replay-from=/tmp/install_replay"
+            notifies :delete, resources(
+                :file => "/tmp/#{packagename}.tgz",
+                :directory => "/tmp/ZeusTM_#{version}_Linux-#{arch}",
+                :template => "/tmp/install_replay"
+            ), :delayed
+        end
     end
 
     # Add RS-specific tunings.
@@ -135,115 +149,194 @@ action :install do
         recursive true
         action :create
     end
-
-    # Install script that reads server files and invokes zcli to configure the
-    # pools.
-    cookbook_file "/etc/stingray/#{node[:lb][:service][:provider]}.d/stingray-wrapper.sh" do
-        mode 0755
-        source "stingray-wrapper.sh"
-        cookbook "lb_stingray"
-    end
-
+    
     # Create the zeus service.
     execute "restart zeus" do
         command "/etc/init.d/zeus restart"
-        action :nothing
     end
+    
 
-    if node["cloud"]["provider"] == "ec2" then
-
-        cookbook_file "/etc/stingray/#{node[:lb][:service][:provider]}.d/stingray-ec2ify.sh" do
-            mode 0755
-            source "stingray-ec2ify.sh"
-            cookbook "lb_stingray"
-        end
-
-        file "/opt/riverbed/zxtm/.EC2" do
-            action :create
-        end
-
-        # Create a global settings file.
-        execute "ec2ify global settings" do
-            command "/etc/stingray/#{node[:lb][:service][:provider]}.d/stingray-ec2ify.sh \
-                #{node["ec2"]["placement"]["availability_zone"]} \
-                #{node["ec2"]["instance_id"]}"
-            action :run
-            notifies :run, resources(:execute => "restart zeus")
-        end
-
-    end
 
 end
 
 action :add_vhost do
+    # Generate zcli Script to create vserver,pool, and services
+    # Get default pool name
+    pool = new_resource.pool_name
+    
+    # Add Entry to create the pool
+    zcli_script = "pool.addPool [\"#{pool}\"], [\"\"]\n"
 
-    # Execute the wrapper.
-    execute "wrapper" do
-        command "/etc/stingray/#{node[:lb][:service][:provider]}.d/stingray-wrapper.sh"
-        action :nothing
+    # Add Entry to create virtual server on default port, Add node, and enable virtual server
+    zcli_script << "VirtualServer.addVirtualServer [\"#{pool}\"], { \"default_pool\": \"#{pool}\", \"port\": 80, \"protocol\": \"http\" }\n"
+    zcli_script << "VirtualServer.setNote [\"#{pool}\"], [\"Created by RightScale - do not modify.\"]\n"
+    zcli_script << "VirtualServer.setEnabled [\"#{pool}\"], [ \"true\" ]\n"
+    
+    #Verify Access to Node Attributes, and log what the next action is
+    log "Stickiness='#{node[:lb][:session_stickiness]}'"
+
+    # If the stickiness input is set, enable stickiness
+    Chef::Log.info("Checking StickyPolicy")
+    if node[:lb][:session_stickiness] == "true"
+      Chef::Log.info("Stickiness enabled. Adding")
+      #Add Entry for the Catalog Persistence
+      zcli_script << "Catalog.Persistence.addPersistence [\"#{pool}-sticky\"]\n"
+      zcli_script << "Catalog.Persistence.setNote [\"#{pool}-sticky\"], [\"Created by RightScale - do not modify.\"]\n"
+      
+      # Add entry to set persistence on pool
+      zcli_script << "Pool.setPersistence [\"#{pool}\"], [\"#{pool}-sticky\"]\n"
     end
     
-    # Create a configuration file for this pool.
-    template "/etc/stingray/#{node[:lb][:service][:provider]}.d/services/#{new_resource.pool_name}/config" do
-       source "pool.erb"
-       cookbook "lb_stingray"
-       action :nothing
-       variables( :session_sticky => new_resource.session_sticky )
-       notifies :run, resources( :execute => "wrapper" )
-    end
-
-    # Create a configuration directory for this pool.
-    directory "/etc/stingray/#{node[:lb][:service][:provider]}.d/services/#{new_resource.pool_name}/servers" do
-        recursive true
-        action :create
-        notifies :create, resources( :template => "/etc/stingray/#{node[:lb][:service][:provider]}.d/services/#{new_resource.pool_name}/config" )
+    # Create the script file from the zcli_script that has been updated with configuration options
+    file "/opt/riverbed/#{pool}-create" do
+      content zcli_script
+      mode "666"
+      action :create
     end
     
+    # Run the newly created script with the zcli
+    execute "SetupServices" do
+        command "/opt/riverbed/zxtm/bin/zcli /opt/riverbed/#{pool}-create"
+    end
+  
+  
+  
     # Update tags to let RS know we are a load-balancer for this pool.
     right_link_tag "loadbalancer:#{new_resource.pool_name}=lb"
 
 end
 
 action :attach do
-
+    
+    # Gather Resources for the Attach: Pool, IP, Port, ID. Each needed to create reference cache store
     pool_name = new_resource.pool_name
     backend_id = new_resource.backend_id
+    backend_ip = new_resource.backend_ip
+    backend_port = new_resource.backend_port
+    
+    #Log to audit entries what we detected and are adding
+    log "  Attaching #{backend_id} - #{backend_ip}:#{backend_port}, to #{pool_name}" 
+    
+    # Block to create script file, local cache, and execute script
+    ruby_block "attach" do
+      block do
+        #--------
+        # Gem for pstore
+        require 'pstore'
+    
+        # Create PSStore for Local Cache
+        store = PStore.new("/opt/riverbed/configuration.store")
+    
+        #Initial Read from Store
+        Chef::Log.info("Reading from local store")
+        store.transaction(true) do
+          @pool = store["#{pool_name}"]
+        end
+        Chef::Log.info("Read from Cache")
 
-    log "  Attaching #{backend_id} to #{pool_name}" 
+        # Create Default Hash if First Run or empty
+        Chef::Log.info("Checking what was read from local store")
+        if @pool.to_s.empty?
+          Chef::Log.info("No Configuration Found, creating default hash")
+          @pool = Hash.new
+        end
+        Chef::Log.info("Attaching node")
+        
+        # Create Add Node Script file for zcli    
+        node = "Pool.addNodes [ \"#{pool_name}\" ], [ \"#{backend_ip}:#{backend_port}\" ]"
+        Chef::Log.info("Generated '#{node}'")
+        
+        # Write Script File
+        Chef::Log.info("Writing Script File for zcli:\n\'#{node}'")
+        ::File.open("/opt/riverbed/modify-node", 'w') { |file| file.write(node) }
 
-    execute "wrapper" do
-        command "/etc/stingray/#{node[:lb][:service][:provider]}.d/stingray-wrapper.sh"
-        action :nothing
+        # Execute Script File
+        Chef::Log.info("Running zcli")
+        system("/opt/riverbed/zxtm/bin/zcli /opt/riverbed/modify-node")
+        
+        # Add new node to the pool hash to be saved
+        @pool["#{backend_id}"] = Hash[
+          :ip   => "#{backend_ip}",
+          :port => "#{backend_port}"
+        ]
+
+        #Update local cache store
+        Chef::Log.info("Updating local Store")
+        store.transaction do
+          store["#{pool_name}"] = @pool
+          store.commit
+        end
+    
+        # Wrap up
+        Chef::Log.info("Finished")
+        #----------
+      end
     end
-
-    template ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d/services", pool_name, "servers",  backend_id) do
-        source  "backend.erb"
-        cookbook "lb_stingray"
-        variables( :backend_ip => new_resource.backend_ip, :backend_port => new_resource.backend_port )
-        notifies :run, resources(:execute => "wrapper")
-    end
-
 end
 
 action :detach do
-
+    # Gather Resources for the Attach: Pool, IP, Port, ID. Each needed to create reference cache store
     pool_name = new_resource.pool_name
     backend_id = new_resource.backend_id
+    backend_port = new_resource.backend_port
+    
+    # Block to create script file, local cache, and execute script
+    ruby_block "detatch" do
+      block do
+        #--------
+        # Gem for pstore
+        require 'pstore'
+        
+        # Create PSStore for Local Cache
+        store = PStore.new("/opt/riverbed/configuration.store")
+    
+        #Initial Read from Store
+        Chef::Log.info("Reading from local store")
+        store.transaction(true) do
+          @pool = store["#{pool_name}"]
+        end
+        Chef::Log.info("Read from Cache")
 
-    log "  Detaching #{backend_id} from #{pool_name}"
+        # Create Default Hash if First Run or empty
+        Chef::Log.info("Checking what was read from local store")
+        if @pool.to_s.empty?
+          Chef::Log.info("No Configuration Found, creating default hash")
+          @pool = Hash.new
+        end
+       
+       # Get Info from Local Cache about what node we are removing
+       Chef::Log.info("Detatching node")
+       ip = @pool["#{backend_id}"][:ip]
+       port = @pool["#{backend_id}"][:port]
+       
+       # Generate Script for zcli
+       node = "Pool.removeNodes [ \"#{pool_name}\" ], [ \"#{ip}:#{port}\" ]"
+       Chef::Log.info("Generated '#{node}'")
+       
+       # Write Script file for zcli
+       Chef::Log.info("Writing Script File for zcli:\n\'#{node}'")
+       ::File.open("/opt/riverbed/modify-node", 'w') { |file| file.write(node) }
+       
+      # Execute the newly created script file
+      Chef::Log.info("Running zcli")
+      system("/opt/riverbed/zxtm/bin/zcli /opt/riverbed/modify-node")
+         
+      # Remove node that we are removing from the local cache
+      @pool.delete("#{backend_id}")
+      
+      #Update local cache/store
+      Chef::Log.info("Updating local Store")
+      store.transaction do
+        store["#{pool_name}"] = @pool
+        store.commit
+      end
 
-    # Imports the config into Stingray's config system.
-    execute "wrapper" do
-        command "/etc/stingray/#{node[:lb][:service][:provider]}.d/stingray-wrapper.sh"
-        action :nothing
+      Chef::Log.info("Finished")
+      #----------
     end
+end
 
-    # Delete the backend's config file.
-    file ::File.join("/etc/stingray/#{node[:lb][:service][:provider]}.d/services", pool_name, "servers" , backend_id) do
-        action :delete
-        backup false
-        notifies :run, resources(:execute => "wrapper")
-    end
+
 
 end
 
@@ -275,6 +368,7 @@ action :detach_request do
     remote_recipe "Detach me from load balancer" do
         recipe "lb::handle_detach"
         attributes :remote_recipe => {
+            :backend_ip => new_resource.backend_ip,
             :backend_id => new_resource.backend_id,
             :pools => [ "#{pool_name}" ]
         }
