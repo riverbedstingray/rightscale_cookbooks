@@ -53,7 +53,7 @@ action :install do
        cwd "/tmp"
        # Resume partial transfers, print no console output.
        command "wget --continue --quiet #{s3bucket}#{packagename}.tgz"
-       # TODO: check the MD5 hash of the downloaded file against the expected value and EXPLODE if necessary
+       # TODO: check the MD5 hash of the downloaded file against the expected value and explode if necessary
     end
 
     # Replay file for non-interactive installation of Stingray.
@@ -67,6 +67,7 @@ action :install do
 
     # Unpack tarball and install software package
     if node["cloud"]["provider"] == "ec2" then
+        # Use the --ec2 flag if installing on EC2
         execute "deploy_binaries" do
             creates "/opt/riverbed"
             cwd "/tmp"
